@@ -16,6 +16,9 @@ dependencies:
   # State management
   provider: ^6.1.0
 
+  # API
+  http: ^1.2.2
+
   # UI
   cupertino_icons: ^1.0.6
   google_fonts: ^6.1.0

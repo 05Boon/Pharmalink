@@ -84,6 +84,18 @@ lib/
    flutter run -d chrome
    ```
 
+### Connect to local backend
+
+Run Flutter with backend URL using Dart define:
+
+```bash
+flutter run -d chrome --dart-define=API_BASE_URL=http://localhost:4000
+```
+
+Backend health endpoint expected by `HealthApiService`:
+
+- `GET /api/health`
+
 ## Key Dependencies
 
 - **go_router**: Navigation and routing (^14.0.0)

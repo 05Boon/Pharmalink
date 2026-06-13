@@ -18,7 +18,7 @@ class PharmacyNetworkApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF1D9E75),
           primary: const Color(0xFF1D9E75),
-          background: const Color(0xFFF5F5F2),
+          surface: const Color(0xFFF5F5F2),
         ),
         scaffoldBackgroundColor: const Color(0xFFF5F5F2),
         textTheme: GoogleFonts.interTextTheme(),
