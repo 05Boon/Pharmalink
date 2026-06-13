@@ -1,0 +1,101 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../widgets/app_nav.dart';
+import '../widgets/app_button.dart';
+
+class ViewResponsePage extends StatelessWidget {
+  const ViewResponsePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Column(
+        children: [
+          AppNav(links: [
+            NavLink(label: 'Dashboard', path: '/dashboard'),
+            NavLink(label: 'Search', path: '/search', active: true),
+          ]),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Center(
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 400),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: const Color(0xFFB4B2A9)),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Request sent',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1A1A18),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1EFEA),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'To: City Pharmacy',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF1A1A18),
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'Drug: Amoxicillin 500mg',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Color(0xFF5F5E5A),
+                              ),
+                            ),
+                            Text(
+                              'Quantity: 50 units',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Color(0xFF5F5E5A),
+                              ),
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              'Status: Waiting for response',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Color(0xFF633806),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      AppButton(
+                        text: 'Back to dashboard',
+                        onPressed: () => context.go('/dashboard'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

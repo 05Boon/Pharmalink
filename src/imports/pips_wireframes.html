@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>PIPS Wireframes</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#f5f5f2;color:#1a1a18;padding:24px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.full{grid-column:1/-1}
+.section{font-size:11px;font-weight:600;color:#888780;text-transform:uppercase;letter-spacing:.06em;padding:16px 0 6px;grid-column:1/-1;border-top:0.5px solid #d3d1c7;margin-top:8px}
+.section:first-child{border-top:none;margin-top:0}
+.label{font-size:11px;font-weight:500;color:#5f5e5a;margin-bottom:6px}
+.screen{background:#fff;border:0.5px solid #b4b2a9;border-radius:10px;overflow:hidden;font-size:12px}
+.nav{background:#f1efea;border-bottom:0.5px solid #d3d1c7;padding:7px 12px;display:flex;align-items:center;justify-content:space-between}
+.nav-brand{font-size:11px;font-weight:600;color:#1a1a18}
+.nav-links{display:flex;gap:10px}
+.nav-link{font-size:10px;color:#5f5e5a}
+.nav-link.active{color:#0f6e56;font-weight:500}
+.body{padding:14px}
+.h1{font-size:13px;font-weight:600;color:#1a1a18;margin-bottom:3px}
+.sub{font-size:10px;color:#5f5e5a;margin-bottom:10px}
+.field{background:#f1efea;border:0.5px solid #d3d1c7;border-radius:5px;padding:6px 8px;font-size:10px;color:#888780;margin-bottom:7px;width:100%}
+.btn{display:block;width:100%;background:#1d9e75;border-radius:6px;padding:7px 0;font-size:11px;font-weight:600;color:#04342c;text-align:center;margin-top:4px;border:none;cursor:pointer}
+.btn-out{display:block;width:100%;background:#f1efea;border:0.5px solid #b4b2a9;border-radius:6px;padding:6px 0;font-size:11px;color:#1a1a18;text-align:center;margin-top:7px}
+.link{font-size:10px;color:#0f6e56;text-align:center;display:block;margin-top:8px}
+.card{background:#f1efea;border:0.5px solid #d3d1c7;border-radius:7px;padding:10px 12px;margin-bottom:8px}
+.row{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
+.lbl{font-size:10px;color:#5f5e5a}
+.val{font-size:10px;color:#1a1a18}
+.badge{display:inline-block;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:500}
+.bg{background:#e1f5ee;color:#085041}
+.ba{background:#faeeda;color:#633806}
+.br{background:#fcebeb;color:#791f1f}
+.bk{background:#f1efea;color:#444441}
+.divider{border:none;border-top:0.5px solid #d3d1c7;margin:9px 0}
+.stat-row{display:grid;gap:6px;margin-bottom:12px}
+.stat{background:#f1efea;border-radius:6px;padding:8px 10px;text-align:center}
+.stat-n{font-size:16px;font-weight:600;color:#1a1a18}
+.stat-l{font-size:10px;color:#5f5e5a;margin-top:1px}
+.thead{display:grid;font-size:10px;font-weight:600;color:#5f5e5a;padding:4px 0;border-bottom:0.5px solid #d3d1c7;margin-bottom:3px}
+.trow{display:grid;font-size:10px;color:#1a1a18;padding:5px 0;border-bottom:0.5px solid #e8e6df}
+.rrow{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:0.5px solid #e8e6df}
+.rname{font-size:11px;font-weight:500;color:#1a1a18}
+.rmeta{font-size:10px;color:#5f5e5a}
+.alert{background:#faeeda;border:0.5px solid #ef9f27;border-radius:6px;padding:8px 10px;margin-bottom:8px}
+.alert-t{font-size:11px;font-weight:600;color:#633806;margin-bottom:2px}
+.alert-s{font-size:10px;color:#854f0b}
+.success-bar{background:#e1f5ee;border:0.5px solid #5dcaa5;border-radius:6px;padding:8px 10px;margin-bottom:10px}
+.success-t{font-size:11px;font-weight:600;color:#085041;margin-bottom:2px}
+.success-s{font-size:10px;color:#0f6e56}
+.btn-row{display:flex;gap:6px;margin-top:8px}
+.btn-sm{flex:1;border-radius:6px;padding:6px 0;font-size:10px;font-weight:500;text-align:center;border:0.5px solid #b4b2a9;background:#fff;color:#1a1a18;cursor:pointer}
+.btn-sm.p{background:#1d9e75;border-color:#0f6e56;color:#04342c}
+.btn-sm.d{background:#fcebeb;border-color:#e24b4a;color:#791f1f}
+.tabs{display:flex;border-bottom:0.5px solid #d3d1c7;margin-bottom:9px}
+.tab{font-size:10px;padding:5px 10px;color:#5f5e5a;border-bottom:2px solid transparent}
+.tab.active{color:#0f6e56;border-bottom-color:#1d9e75;font-weight:500}
+.breadcrumb{font-size:10px;color:#5f5e5a;margin-bottom:8px}
+.breadcrumb span{color:#0f6e56}
+.map{background:#f1efea;border:0.5px solid #d3d1c7;border-radius:6px;height:72px;display:flex;align-items:center;justify-content:center;margin-bottom:8px;position:relative;overflow:hidden}
+.map-grid{position:absolute;inset:0;background-image:repeating-linear-gradient(#d3d1c7 0 0.5px,transparent 0.5px 12px),repeating-linear-gradient(90deg,#d3d1c7 0 0.5px,transparent 0.5px 12px);opacity:0.6}
+.map-dot{width:10px;height:10px;background:#1d9e75;border-radius:50%;position:absolute;border:2px solid #085041}
+.map-dot2{width:8px;height:8px;background:#e1f5ee;border-radius:50%;position:absolute;border:1.5px solid #1d9e75}
+.connector{grid-column:1/-1;text-align:center;font-size:10px;color:#888780;padding:4px 0;display:flex;align-items:center;justify-content:center;gap:6px}
+.connector::before,.connector::after{content:'';flex:1;height:0.5px;background:#d3d1c7}
+</style>
+</head>
+<body>
+<div class="grid">
+
+<div class="section">Authentication flow</div>
+
+<!-- 1 Register -->
+<div>
+<div class="label">1 — Register</div>
+<div class="screen">
+  <div class="nav"><span class="nav-brand">PharmPool</span><span class="nav-link">Login</span></div>
+  <div class="body">
+    <div class="h1">Create account</div>
+    <div class="sub">Register your pharmacy</div>
+    <div class="field">Full name</div>
+    <div class="field">Email address</div>
+    <div class="field">Password</div>
+    <div class="field">Pharmacy name</div>
+    <div class="field">Location / address</div>
+    <div class="btn">Register</div>
+    <a class="link">Already registered? Login</a>
+  </div>
+</div>
+</div>
+
+<!-- 2 Login -->
+<div>
+<div class="label">2 — Login</div>
+<div class="screen">
+  <div class="nav"><span class="nav-brand">PharmPool</span><span class="nav-link">Register</span></div>
+  <div class="body">
+    <div class="h1">Welcome back</div>
+    <div class="sub">Sign in to your account</div>
+    <div class="field">Email address</div>
+    <div class="field">Password</div>
+    <div class="btn">Login</div>
+    <div style="margin-top:10px;font-size:10px;color:#5f5e5a;text-align:center">Admin? <span style="color:#0f6e56">Admin login →</span></div>
+    <a class="link">Forgot password?</a>
+  </div>
+</div>
+</div>
+
+<div class="connector">→ authenticated → dashboard</div>
+
+<div class="section">Pharmacy owner flow</div>
+
+<!-- 3 Owner Dashboard (full width) -->
+<div class="full">
+<div class="label">3 — Owner dashboard</div>
+<div class="screen">
+  <div class="nav">
+    <span class="nav-brand">PharmPool</span>
+    <div class="nav-links">
+      <span class="nav-link active">Dashboard</span>
+      <span class="nav-link">Search</span>
+      <span class="nav-link">Requests</span>
+      <span class="nav-link">History</span>
+      <span class="nav-link">Logout</span>
+    </div>
+  </div>
+  <div class="body">
+    <div class="breadcrumb">Dashboard</div>
+    <div class="stat-row" style="grid-template-columns:repeat(3,1fr)">
+      <div class="stat"><div class="stat-n">3</div><div class="stat-l">Active queries</div></div>
+      <div class="stat"><div class="stat-n">12</div><div class="stat-l">Requests received</div></div>
+      <div class="stat"><div class="stat-n">8</div><div class="stat-l">Completed</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div>
+        <div style="font-size:11px;font-weight:500;color:#1a1a18;margin-bottom:6px">Recent requests</div>
+        <div class="rrow"><div><div class="rname">Amoxicillin 500mg</div><div class="rmeta">City Pharmacy · 2 min ago</div></div><span class="badge ba">Pending</span></div>
+        <div class="rrow"><div><div class="rname">Metformin 1g</div><div class="rmeta">HealthPlus · 1 hr ago</div></div><span class="badge bg">Accepted</span></div>
+        <div class="rrow"><div><div class="rname">Ibuprofen 400mg</div><div class="rmeta">MediCare · 3 hr ago</div></div><span class="badge br">Declined</span></div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:500;color:#1a1a18;margin-bottom:6px">My active queries</div>
+        <div class="rrow"><div><div class="rname">Ciprofloxacin 250mg</div><div class="rmeta">Searching nearby…</div></div><span class="badge ba">Searching</span></div>
+        <div class="rrow"><div><div class="rname">Atenolol 50mg</div><div class="rmeta">Match found</div></div><span class="badge bg">Matched</span></div>
+        <div class="rrow"><div><div class="rname">Paracetamol 500mg</div><div class="rmeta">No match found</div></div><span class="badge br">Unmatched</span></div>
+      </div>
+    </div>
+    <div class="btn" style="max-width:180px">+ New drug query</div>
+  </div>
+</div>
+</div>
+
+<!-- 4 Drug Query -->
+<div>
+<div class="label">4 — Enter drug query</div>
+<div class="screen">
+  <div class="nav"><span class="nav-brand">PharmPool</span><div class="nav-links"><span class="nav-link">Dashboard</span><span class="nav-link active">Search</span></div></div>
+  <div class="body">
+    <div class="breadcrumb">Dashboard / <span>New query</span></div>
+    <div class="h1">Drug query</div>
+    <div class="sub">Find nearby stock</div>
+    <div class="field">Drug name / generic name</div>
+    <div class="field">Quantity needed</div>
+    <div class="field">Dosage / form (optional)</div>
+    <div style="margin-bottom:8px">
+      <div class="lbl" style="margin-bottom:4px">Search radius</div>
+      <div style="display:flex;gap:5px">
+        <div class="field" style="flex:1;margin-bottom:0">5 km</div>
+        <div class="field" style="flex:1;margin-bottom:0;background:#e1f5ee;color:#085041;border-color:#5dcaa5">10 km ✓</div>
+        <div class="field" style="flex:1;margin-bottom:0">20 km</div>
+      </div>
+    </div>
+    <div class="field">Your location (auto-detected)</div>
+    <div class="btn">Search now</div>
+    <div class="btn-out">Cancel</div>
+  </div>
+</div>
+</div>
+
+<!-- 5 Search Results -->
+<div>
+<div class="label">5 — Search results</div>
+<div class="screen">
+  <div class="nav"><span class="nav-brand">PharmPool</span><div class="nav-links"><span class="nav-link active">Search</span></div></div>
+  <div class="body">
+    <div class="breadcrumb">Search / <span>Results</span></div>
+    <div class="h1">Amoxicillin 500mg</div>
+    <div class="sub">3 pharmacies found within 10 km</div>
+    <div class="map">
+      <div class="map-grid"></div>
+      <div class="map-dot" style="top:36px;left:55px"></div>
+      <div class="map-dot2" style="top:22px;left:95px"></div>
+      <div class="map-dot2" style="top:46px;left:138px"></div>
+      <div class="map-dot2" style="top:28px;left:175px"></div>
+    </div>
+    <div class="rrow"><div><div class="rname">City Pharmacy</div><div class="rmeta">1.2 km · 50 units in stock</div></div><span class="badge bg">Closest</span></div>
+    <div class="rrow"><div><div class="rname">HealthPlus Pharmacy</div><div class="rmeta">4.5 km · 20 units</div></div><span class="badge bk">Available</span></div>
+    <div class="rrow"><div><div class="rname">MediCare Store</div><div class="rmeta">8.1 km · 100 units</div></div><span class="badge bk">Available</span></div>
+    <div class="sub" style="margin-top:8px;color:#888780">Tap a result to send a request</div>
+  </div>
+</div>
+</div>
+
+<!-- 6 Receive Alert -->
+<div>
+<div class="label">6 — Receive request alert</div>
+<div class="screen">
+  <div class="nav"><span class="nav-brand">PharmPool</span><div class="nav-links"><span class="nav-link">Dashboard</span><span class="nav-link active">Requests</span></div></div>
+  <div class="body">
+    <div class="breadcrumb">Requests / <span>New alert</span></div>
+    <div class="alert">
+      <div class="alert-t">New stock request</div>
+      <div class="alert-s">City Pharmacy requesting Amoxicillin 500mg</div>
+    </div>
+    <div class="h1">Review request</div>
+    <div class="card">
+      <div class="row"><span class="lbl">Drug</span><span class="val">Amoxicillin 500mg</span></div>
+      <div class="row"><span class="lbl">Quantity needed</span><span class="val">30 units</span></div>
+      <div class="row"><span class="lbl">Requested by</span><span class="val">City Pharmacy</span></div>
+      <div class="row"><span class="lbl">Distance</span><span class="val">1.2 km</span></div>
+      <div class="row"><span class="lbl">Your stock</span><span class="val" style="color:#085041">50 units available</span></div>
+    </div>
+    <div class="btn-row">
+      <div class="btn-sm p">Accept</div>
+      <div class="btn-sm d">Decline</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="connector">→ accept → share details &nbsp;|&nbsp; decline → rejection notice sent</div>
+
+<!-- 7 Accept / Share Details -->
+<div>
+<div class="label">7 — Accept: share details</div>
+<div class="screen">
+  <div class="nav"><span class="nav-brand">PharmPool</span><div class="nav-links"><span class="nav-link active">Requests</span></div></div>
+  <div class="body">
+    <div class="breadcrumb">Requests / <span>Accepted</span></div>
+    <div class="success-bar">
+      <div class="success-t">✓ Request accepted</div>
+      <div class="success-s">Details shared with City Pharmacy</div>
+    </div>
+    <div class="h1">Shared details</div>
+    <div class="card">
+      <div class="row"><span class="lbl">Your pharmacy</span><span class="val">HealthPlus</span></div>
+      <div class="row"><span class="lbl">Address</span><span class="val">14 Market St</span></div>
+      <div class="row"><span class="lbl">Contact</span><span class="val">+254 700 000 000</span></div>
+      <div class="row"><span class="lbl">Drug ready</span><span class="val" style="color:#085041">Yes</span></div>
+      <div class="row"><span class="lbl">Transaction ref</span><span class="val">TXN-00421</span></div>
+    </div>
+    <div class="btn-out">Back to requests</div>
+  </div>
+</div>
+</div>
+
+<!-- 8 View Response -->
+<div>
+<div class="label">8 — View response (requester)</div>
+<div class="screen">
+  <div class="nav"><span class="nav-brand">PharmPool</span><div class="nav-links"><span class="nav-link active">Search</span></div></div>
+  <div class="body">
+    <div class="breadcrumb">Search / <span>Response received</span></div>
+    <div class="success-bar">
+      <div class="success-t">Stock confirmed</div>
+      <div class="success-s">HealthPlus Pharmacy accepted your request</div>
+    </div>
+    <div class="h1">Pharmacy details</div>
+    <div class="card">
+      <div class="row"><span class="lbl">Pharmacy</span><span class="val">HealthPlus</span></div>
+      <div class="row"><span class="lbl">Address</span><span class="val">14 Market St</span></div>
+      <div class="row"><span class="lbl">Contact</span><span class="val">+254 700 000 000</span></div>
+      <div class="row"><span class="lbl">Drug</span><span class="val">Amoxicillin 500mg × 30</span></div>
+      <div class="row"><span class="lbl">Distance</span><span class="val">4.5 km</span></div>
+    </div>
+    <div class="btn">View on map</div>
+  </div>
+</div>
+</div>
+
+<!-- 9 Transaction History -->
+<div>
+<div class="label">9 — Transaction history</div>
+<div class="screen">
+  <div class="nav"><span class="nav-brand">PharmPool</span><div class="nav-links"><span class="nav-link">Dashboard</span><span class="nav-link active">History</span></div></div>
+  <div class="body">
+    <div class="breadcrumb">Transaction history</div>
+    <div class="tabs">
+      <div class="tab active">All</div>
+      <div class="tab">Sent</div>
+      <div class="tab">Received</div>
+    </div>
+    <div class="rrow"><div><div class="rname">TXN-00421 · Amoxicillin</div><div class="rmeta">Sent to HealthPlus · Today 09:14</div></div><span class="badge bg">Completed</span></div>
+    <div class="rrow"><div><div class="rname">TXN-00398 · Metformin</div><div class="rmeta">Received from City · Yesterday</div></div><span class="badge bg">Completed</span></div>
+    <div class="rrow"><div><div class="rname">TXN-00376 · Ibuprofen</div><div class="rmeta">Sent to MediCare · 3 days ago</div></div><span class="badge br">Declined</span></div>
+    <div class="rrow"><div><div class="rname">TXN-00351 · Atenolol</div><div class="rmeta">Sent to PharmCity · 5 days ago</div></div><span class="badge bg">Completed</span></div>
+  </div>
+</div>
+</div>
+
+<div class="section">Admin flow</div>
+
+<!-- 10 Admin Dashboard (full width) -->
+<div class="full">
+<div class="label">10 — Admin dashboard</div>
+<div class="screen">
+  <div class="nav">
+    <span class="nav-brand">PharmPool Admin</span>
+    <div class="nav-links">
+      <span class="nav-link active">Overview</span>
+      <span class="nav-link">Pharmacies</span>
+      <span class="nav-link">Transactions</span>
+      <span class="nav-link">Reports</span>
+      <span class="nav-link">Logs</span>
+      <span class="nav-link">Logout</span>
+    </div>
+  </div>
+  <div class="body">
+    <div class="stat-row" style="grid-template-columns:repeat(4,1fr)">
+      <div class="stat"><div class="stat-n">47</div><div class="stat-l">Pharmacies</div></div>
+      <div class="stat"><div class="stat-n">132</div><div class="stat-l">Queries today</div></div>
+      <div class="stat"><div class="stat-n">89</div><div class="stat-l">Completed</div></div>
+      <div class="stat"><div class="stat-n">5</div><div class="stat-l">Pending approvals</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+      <div>
+        <div style="font-size:11px;font-weight:500;color:#1a1a18;margin-bottom:6px">Recent transactions</div>
+        <div class="rrow"><div><div class="rname">TXN-00421</div><div class="rmeta">City → HealthPlus</div></div><span class="badge bg">Done</span></div>
+        <div class="rrow"><div><div class="rname">TXN-00420</div><div class="rmeta">MediCare → PharmCity</div></div><span class="badge ba">Pending</span></div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:500;color:#1a1a18;margin-bottom:6px">Pending approvals</div>
+        <div class="rrow"><div><div class="rname">Green Leaf</div><div class="rmeta">Applied 2 days ago</div></div><span class="badge ba">Review</span></div>
+        <div class="rrow"><div><div class="rname">SunCare Chemist</div><div class="rmeta">Applied today</div></div><span class="badge ba">Review</span></div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:500;color:#1a1a18;margin-bottom:6px">System health</div>
+        <div class="rrow"><span class="lbl">Uptime</span><span class="val" style="color:#085041">99.8%</span></div>
+        <div class="rrow"><span class="lbl">Avg response</span><span class="val">4.2 min</span></div>
+        <div class="rrow"><span class="lbl">Match rate</span><span class="val" style="color:#085041">89%</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- 11 Manage Pharmacies -->
+<div>
+<div class="label">11 — Manage pharmacies</div>
+<div class="screen">
+  <div class="nav"><span class="nav-brand">PharmPool Admin</span><div class="nav-links"><span class="nav-link active">Pharmacies</span></div></div>
+  <div class="body">
+    <div class="breadcrumb">Admin / <span>Pharmacies</span></div>
+    <div style="display:flex;gap:7px;margin-bottom:10px;align-items:center">
+      <div class="field" style="flex:1;margin-bottom:0">Search pharmacies…</div>
+      <div class="btn" style="width:auto;padding:6px 12px;display:inline-block;white-space:nowrap">+ Register</div>
+    </div>
+    <div class="thead" style="grid-template-columns:2fr 1fr 1fr"><span>Pharmacy</span><span>Status</span><span>Action</span></div>
+    <div class="trow" style="grid-template-columns:2fr 1fr 1fr"><span>City Pharmacy</span><span><span class="badge bg">Active</span></span><span style="color:#0f6e56;cursor:pointer">Edit</span></div>
+    <div class="trow" style="grid-template-columns:2fr 1fr 1fr"><span>Green Leaf</span><span><span class="badge ba">Pending</span></span><span style="color:#0f6e56;cursor:pointer">Approve</span></div>
+    <div class="trow" style="grid-template-columns:2fr 1fr 1fr"><span>SunCare Chemist</span><span><span class="badge ba">Pending</span></span><span style="color:#0f6e56;cursor:pointer">Approve</span></div>
+    <div class="trow" style="grid-template-columns:2fr 1fr 1fr"><span>HealthPlus</span><span><span class="badge bg">Active</span></span><span style="color:#0f6e56;cursor:pointer">Edit</span></div>
+    <div class="trow" style="grid-template-columns:2fr 1fr 1fr"><span>MediCare</span><span><span class="badge bg">Active</span></span><span style="color:#0f6e56;cursor:pointer">Edit</span></div>
+  </div>
+</div>
+</div>
+
+<!-- 12 Approve Onboarding -->
+<div>
+<div class="label">12 — Approve onboarding</div>
+<div class="screen">
+  <div class="nav"><span class="nav-brand">PharmPool Admin</span><div class="nav-links"><span class="nav-link active">Pharmacies</span></div></div>
+  <div class="body">
+    <div class="breadcrumb">Pharmacies / <span>Review application</span></div>
+    <div class="h1">Green Leaf Pharmacy</div>
+    <div class="sub">Application received 2 days ago</div>
+    <div class="card">
+      <div class="row"><span class="lbl">Owner</span><span class="val">James Otieno</span></div>
+      <div class="row"><span class="lbl">Email</span><span class="val">j.otieno@greenleaf.com</span></div>
+      <div class="row"><span class="lbl">Location</span><span class="val">Nairobi, CBD</span></div>
+      <div class="row"><span class="lbl">License no.</span><span class="val">PPB-2024-00421</span></div>
+      <div class="row"><span class="lbl">Documents</span><span class="val" style="color:#0f6e56">2 uploaded ↗</span></div>
+      <div class="row"><span class="lbl">Status</span><span class="badge ba">Pending review</span></div>
+    </div>
+    <div class="btn-row">
+      <div class="btn-sm p">Approve</div>
+      <div class="btn-sm d">Reject</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- 13 Monitor Transactions -->
+<div>
+<div class="label">13 — Monitor transactions</div>
+<div class="screen">
+  <div class="nav"><span class="nav-brand">PharmPool Admin</span><div class="nav-links"><span class="nav-link active">Transactions</span></div></div>
+  <div class="body">
+    <div class="breadcrumb">Admin / <span>Transactions</span></div>
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <div class="field" style="flex:1;margin-bottom:0">Date range…</div>
+      <div class="field" style="flex:1;margin-bottom:0">Status…</div>
+    </div>
+    <div class="thead" style="grid-template-columns:1.2fr 1fr 1fr 1fr"><span>Ref</span><span>Drug</span><span>Status</span><span>Date</span></div>
+    <div class="trow" style="grid-template-columns:1.2fr 1fr 1fr 1fr"><span>TXN-00421</span><span>Amoxicillin</span><span><span class="badge bg">Done</span></span><span>Today</span></div>
+    <div class="trow" style="grid-template-columns:1.2fr 1fr 1fr 1fr"><span>TXN-00420</span><span>Metformin</span><span><span class="badge ba">Pending</span></span><span>Today</span></div>
+    <div class="trow" style="grid-template-columns:1.2fr 1fr 1fr 1fr"><span>TXN-00398</span><span>Ibuprofen</span><span><span class="badge br">Declined</span></span><span>Yesterday</span></div>
+    <div class="trow" style="grid-template-columns:1.2fr 1fr 1fr 1fr"><span>TXN-00376</span><span>Atenolol</span><span><span class="badge bg">Done</span></span><span>3 days ago</span></div>
+  </div>
+</div>
+</div>
+
+<!-- 14 Reports -->
+<div>
+<div class="label">14 — Reports &amp; analytics</div>
+<div class="screen">
+  <div class="nav"><span class="nav-brand">PharmPool Admin</span><div class="nav-links"><span class="nav-link active">Reports</span></div></div>
+  <div class="body">
+    <div class="breadcrumb">Admin / <span>Reports</span></div>
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      <div class="field" style="flex:1;margin-bottom:0">Date range</div>
+      <div class="btn" style="width:auto;padding:6px 12px;display:inline-block">Generate</div>
+    </div>
+    <div class="stat-row" style="grid-template-columns:1fr 1fr;margin-bottom:8px">
+      <div class="stat"><div class="stat-n">89%</div><div class="stat-l">Match rate</div></div>
+      <div class="stat"><div class="stat-n">4.2 min</div><div class="stat-l">Avg response</div></div>
+    </div>
+    <div class="card">
+      <div style="font-size:11px;font-weight:500;color:#1a1a18;margin-bottom:6px">Top requested drugs</div>
+      <div class="rrow"><span class="rname">Amoxicillin 500mg</span><span class="val">42 queries</span></div>
+      <div class="rrow"><span class="rname">Metformin 1g</span><span class="val">31 queries</span></div>
+      <div class="rrow"><span class="rname">Ibuprofen 400mg</span><span class="val">28 queries</span></div>
+    </div>
+    <div class="btn-out">Export as PDF</div>
+  </div>
+</div>
+</div>
+
+<!-- 15 Audit Logs -->
+<div>
+<div class="label">15 — Audit logs</div>
+<div class="screen">
+  <div class="nav"><span class="nav-brand">PharmPool Admin</span><div class="nav-links"><span class="nav-link active">Logs</span></div></div>
+  <div class="body">
+    <div class="breadcrumb">Admin / <span>Audit logs</span></div>
+    <div class="field" style="margin-bottom:10px">Search by user or action…</div>
+    <div class="thead" style="grid-template-columns:1fr 1.5fr 1fr"><span>User</span><span>Action</span><span>Time</span></div>
+    <div class="trow" style="grid-template-columns:1fr 1.5fr 1fr"><span>j.otieno</span><span>Login</span><span>09:01</span></div>
+    <div class="trow" style="grid-template-columns:1fr 1.5fr 1fr"><span>admin01</span><span>Approved pharmacy</span><span>09:14</span></div>
+    <div class="trow" style="grid-template-columns:1fr 1.5fr 1fr"><span>city.pharm</span><span>Submitted query</span><span>09:22</span></div>
+    <div class="trow" style="grid-template-columns:1fr 1.5fr 1fr"><span>healthplus</span><span>Accepted request</span><span>09:24</span></div>
+    <div class="trow" style="grid-template-columns:1fr 1.5fr 1fr"><span>city.pharm</span><span>Viewed response</span><span>09:25</span></div>
+    <div class="trow" style="grid-template-columns:1fr 1.5fr 1fr"><span>city.pharm</span><span>Logout</span><span>10:05</span></div>
+  </div>
+</div>
+</div>
+
+</div>
+</body>
+</html>
