@@ -1,6 +1,6 @@
 # Pharmacy Network - Flutter App
 
-A complete Flutter conversion of the Pharmacy Network React app. This app enables pharmacies to share drug inventory, search for medications, and manage requests.
+A Flutter app for pharmacies to share drug inventory, search for medications, and manage requests.
 
 ## Features
 
@@ -104,7 +104,7 @@ Backend health endpoint expected by `HealthApiService`:
 
 ## Color Palette
 
-The app uses a consistent color scheme matching the original React app:
+The app uses the following color scheme:
 
 - **Background**: `#F5F5F2`
 - **Primary Green**: `#1D9E75`
@@ -135,66 +135,6 @@ The app uses a consistent color scheme matching the original React app:
 | `/admin/transactions` | MonitorTransactionsPage | Transaction monitoring |
 | `/admin/reports` | ReportsPage | System reports |
 | `/admin/logs` | AuditLogsPage | Audit log viewer |
-
-## React to Flutter Conversion Guide
-
-### Key Differences
-
-#### 1. **Components → Widgets**
-```dart
-// React
-<Button onClick={handleClick}>Submit</Button>
-
-// Flutter
-ElevatedButton(
-  onPressed: handleClick,
-  child: Text('Submit'),
-)
-```
-
-#### 2. **State Management**
-```dart
-// React
-const [value, setValue] = useState(0);
-
-// Flutter
-class MyWidget extends StatefulWidget {
-  @override
-  State<MyWidget> createState() => _MyWidgetState();
-}
-
-class _MyWidgetState extends State<MyWidget> {
-  int value = 0;
-  
-  void updateValue(int newValue) {
-    setState(() => value = newValue);
-  }
-}
-```
-
-#### 3. **Navigation**
-```dart
-// React Router
-navigate('/dashboard')
-
-// Flutter GoRouter
-context.go('/dashboard')
-```
-
-#### 4. **Styling**
-```dart
-// React (Tailwind)
-<div className="bg-white p-4 rounded-lg">
-
-// Flutter
-Container(
-  padding: EdgeInsets.all(16),
-  decoration: BoxDecoration(
-    color: Colors.white,
-    borderRadius: BorderRadius.circular(8),
-  ),
-)
-```
 
 ## Testing
 
@@ -233,7 +173,7 @@ flutter build web --release
 
 ## Contributing
 
-This is a conversion of the React app found in `/src/app/`. When making changes:
+When making changes:
 
 1. Maintain design consistency with the original
 2. Follow Flutter best practices
