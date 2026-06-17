@@ -3,8 +3,15 @@ class ApiConfig {
 
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://localhost:4000',
+    defaultValue: 'http://localhost:8000',
   );
 
-  static String get healthUrl => '$baseUrl/api/health';
+  static String get healthUrl => '$baseUrl/health';
+  static String get registerUrl => '$baseUrl/auth/register';
+  static String get loginUrl => '$baseUrl/auth/login';
+  static String get logoutUrl => '$baseUrl/auth/logout';
+  static String get meUrl => '$baseUrl/auth/me';
+  static String get drugsSearchUrl => '$baseUrl/drugs/search';
+  static String get requestsUrl => '$baseUrl/requests';
+  static String get transactionsUrl => '$baseUrl/transactions';
 }
