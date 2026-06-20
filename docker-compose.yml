@@ -1,0 +1,15 @@
+services:
+  database:
+    image: postgis/postgis:15-3.3
+    container_name: local_pharmacy_db
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: local_secret_password
+      POSTGRES_DB: pharmacy_network_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
