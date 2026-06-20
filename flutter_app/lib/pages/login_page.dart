@@ -3,9 +3,69 @@ import 'package:go_router/go_router.dart';
 import '../widgets/app_nav.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/app_button.dart';
+import '../services/auth_service.dart';
 
-class LoginPage extends StatelessWidget {
+class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
+
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+
+  bool _isLoading = false;
+
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleLogin() async {
+    setState(() {
+      _errorMessage = null;
+      _isLoading = true;
+    });
+
+    if (_emailController.text.trim().isEmpty ||
+        _passwordController.text.trim().isEmpty) {
+      setState(() {
+        _errorMessage = 'Please fill in all fields';
+        _isLoading = false;
+      });
+      return;
+    }
+
+    try {
+      final result = await AuthService.login(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+      );
+
+      if (!mounted) return;
+
+      if (result['ok'] == true) {
+        context.go('/dashboard');
+      } else {
+        setState(() {
+          _errorMessage = result['error']?['message'] ?? 'Login failed';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = 'An error occurred. Please try again.';
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,19 +108,37 @@ class LoginPage extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 10),
-                      const AppTextField(
+                      AppTextField(
                         placeholder: 'Email address',
                         keyboardType: TextInputType.emailAddress,
+                        controller: _emailController,
                       ),
-                      const AppTextField(
+                      AppTextField(
                         placeholder: 'Password',
                         obscureText: true,
+                        controller: _passwordController,
                       ),
+
+                      if (_errorMessage != null) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          _errorMessage!,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: Color(0xFFA32D2D),
+                          ),
+                        ),
+                      ],
+
                       const SizedBox(height: 4),
                       AppButton(
-                        text: 'Login',
-                        onPressed: () => context.go('/dashboard'),
+                        text: _isLoading ? 'Signing in...' : ' Login',
+                        onPressed: () {
+                          if (_isLoading) return;
+                          _handleLogin();
+                        },
                       ),
+
                       const SizedBox(height: 10),
                       Center(
                         child: Row(
