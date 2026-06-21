@@ -6,3 +6,15 @@ flutter_app/.dart_tool
 flutter_app/build
 flutter_app/.flutter-plugins
 flutter_app/.flutter-plugins-dependencies
+
+# Ignore frontend build files
+flutter_app/.dart_tool/
+flutter_app/.packages
+flutter_app/build/
+
+# Ignore backend virtual environment and cache
+routing_engine/venv/
+routing_engine/__pycache__/
+
+# NEVER PUSH SECRETS
+routing_engine/.env

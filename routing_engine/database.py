@@ -13,7 +13,9 @@ DATABASE_URL = os.getenv(
 engine = create_async_engine(
     DATABASE_URL, 
     echo=True,  # Prints raw SQL to your terminal so you can see it working
-    future=True
+    future=True,
+    pool_size=5,  # Connection pool settings for better performance
+    max_overflow=10 #
 )
 
 # 3. Create a Session Factory (Produces temporary connection tickets)
