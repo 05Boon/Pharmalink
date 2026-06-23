@@ -1,12 +1,107 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
+
+import '../config/api_config.dart';
 
 class AuthService {
-  // Gets the Supabase client instance initialized in main.dart
-  // Use this anywhere you need to talk to Supabase
-  static final supabase = Supabase.instance.client;
+  static Map<String, dynamic>? _currentUser;
+  static String? _accessToken;
 
-  // Calls Supabase Auth sign up
-  // Also inserts pharmacy details into your pharmacies table
+  static Map<String, String> _headers({bool withAuth = false}) {
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+
+    if (withAuth && _accessToken != null && _accessToken!.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $_accessToken';
+    }
+
+    return headers;
+  }
+
+  static Map<String, dynamic>? _decodeJsonBody(String body) {
+    if (body.trim().isEmpty) return null;
+
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+      return {'data': decoded};
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Map<String, dynamic> _failure({
+    required String code,
+    required String message,
+  }) {
+    return {
+      'ok': false,
+      'error': {'code': code, 'message': message}
+    };
+  }
+
+  static Map<String, dynamic> _successFromBody(Map<String, dynamic>? body) {
+    if (body == null) {
+      return {'ok': true, 'message': 'Success'};
+    }
+
+    if (body.containsKey('ok')) {
+      return body;
+    }
+
+    return {
+      'ok': true,
+      'data': body,
+      'message': body['message'] ?? 'Success',
+    };
+  }
+
+  static String _extractErrorMessage(Map<String, dynamic>? body, int statusCode) {
+    if (body == null) {
+      return 'Request failed with status $statusCode';
+    }
+
+    final error = body['error'];
+    if (error is Map<String, dynamic> && error['message'] is String) {
+      return error['message'] as String;
+    }
+
+    if (body['message'] is String) {
+      return body['message'] as String;
+    }
+
+    return 'Request failed with status $statusCode';
+  }
+
+  static void _cacheLoginState(Map<String, dynamic> result) {
+    final data = result['data'];
+    if (data is! Map<String, dynamic>) return;
+
+    final tokenCandidate = data['access_token'] ?? data['token'] ?? data['jwt'];
+    if (tokenCandidate is String && tokenCandidate.isNotEmpty) {
+      _accessToken = tokenCandidate;
+    }
+
+    final userCandidate = data['pharmacy'] ?? data['user'] ?? data['me'];
+    if (userCandidate is Map<String, dynamic>) {
+      _currentUser = userCandidate;
+      return;
+    }
+
+    if (data.containsKey('id') || data.containsKey('email') || data.containsKey('name')) {
+      _currentUser = {
+        'id': data['id'],
+        'name': data['name'],
+        'email': data['email'],
+      };
+    }
+  }
+
   static Future<Map<String, dynamic>> register({
     required String name,
     required String email,
@@ -15,139 +110,98 @@ class AuthService {
     required double longitude,
   }) async {
     try {
-      // Creates the user in Supabase Auth
-      final response = await supabase.auth.signUp(
-        email: email,
-        password: password,
-        data: {'name': name}, // stored in user_metadata
-      );
-
-      final user = response.user;
-
-      if (user == null) {
-        return {
-          'ok': false,
-          'error': {
-            'code': 'REGISTER_FAILED',
-            'message': 'Could not create account'
-          }
-        };
-      }
-
-      // Insert pharmacy details into your pharmacies table
-      await supabase.from('pharmacies').insert({
-        'id': user.id,
-        'name': name,
-        'email': email,
-        // WKT format for PostGIS geography column
-        'location': 'POINT($longitude $latitude)',
-      });
-
-      return {
-        'ok': true,
-        'message': 'Account created',
-        'data': {
-          'id': user.id,
+      final response = await http.post(
+        Uri.parse(ApiConfig.registerUrl),
+        headers: _headers(),
+        body: jsonEncode({
           'name': name,
           'email': email,
-        }
-      };
-    } on AuthException catch (e) {
-      // Supabase throws AuthException for auth-specific errors
-      // e.g. email already exists, weak password
-      return {
-        'ok': false,
-        'error': {'code': 'AUTH_ERROR', 'message': e.message}
-      };
+          'password': password,
+          'latitude': latitude,
+          'longitude': longitude,
+        }),
+      );
+
+      final body = _decodeJsonBody(response.body);
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return _failure(
+          code: 'REGISTER_FAILED',
+          message: _extractErrorMessage(body, response.statusCode),
+        );
+      }
+
+      return _successFromBody(body);
     } catch (e) {
-      return {
-        'ok': false,
-        'error': {'code': 'REGISTER_FAILED', 'message': e.toString()}
-      };
+      return _failure(code: 'REGISTER_FAILED', message: e.toString());
     }
   }
 
-  // Signs in with email and password
-  // Supabase automatically stores the session token
   static Future<Map<String, dynamic>> login({
     required String email,
     required String password,
   }) async {
     try {
-      final response = await supabase.auth.signInWithPassword(
-        email: email,
-        password: password,
+      final response = await http.post(
+        Uri.parse(ApiConfig.loginUrl),
+        headers: _headers(),
+        body: jsonEncode({
+          'email': email,
+          'password': password,
+        }),
       );
 
-      final user = response.user;
+      final body = _decodeJsonBody(response.body);
 
-      if (user == null) {
-        return {
-          'ok': false,
-          'error': {
-            'code': 'INVALID_CREDENTIALS',
-            'message': 'Wrong email or password'
-          }
-        };
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return _failure(
+          code: 'INVALID_CREDENTIALS',
+          message: _extractErrorMessage(body, response.statusCode),
+        );
       }
 
-      return {
-        'ok': true,
-        'message': 'Login successful',
-        'data': {
-          'pharmacy': {
-            'id': user.id,
-            // user_metadata is where you stored the name on register
-            'name': user.userMetadata?['name'],
-            'email': user.email,
-          }
-        }
-      };
-    } on AuthException catch (e) {
-      return {
-        'ok': false,
-        'error': {'code': 'INVALID_CREDENTIALS', 'message': e.message}
-      };
+      final result = _successFromBody(body);
+      if (result['ok'] == true) {
+        _cacheLoginState(result);
+      }
+
+      return result;
     } catch (e) {
-      return {
-        'ok': false,
-        'error': {'code': 'LOGIN_FAILED', 'message': e.toString()}
-      };
+      return _failure(code: 'LOGIN_FAILED', message: e.toString());
     }
   }
 
-  // Signs out and clears the local session
   static Future<Map<String, dynamic>> logout() async {
     try {
-      await supabase.auth.signOut();
+      final response = await http.post(
+        Uri.parse(ApiConfig.logoutUrl),
+        headers: _headers(withAuth: true),
+      );
+
+      final body = _decodeJsonBody(response.body);
+      _accessToken = null;
+      _currentUser = null;
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return _failure(
+          code: 'LOGOUT_FAILED',
+          message: _extractErrorMessage(body, response.statusCode),
+        );
+      }
+
       return {'ok': true, 'message': 'Logged out'};
     } catch (e) {
-      return {
-        'ok': false,
-        'error': {'code': 'LOGOUT_FAILED', 'message': e.toString()}
-      };
+      _accessToken = null;
+      _currentUser = null;
+      return _failure(code: 'LOGOUT_FAILED', message: e.toString());
     }
   }
 
-  // Returns the currently logged in user
-  // Returns null if no one is logged in
   static Map<String, dynamic>? getMe() {
-    // currentUser is stored locally by supabase_flutter
-    // No network call needed — it reads from local storage
-    final user = supabase.auth.currentUser;
-
-    if (user == null) return null;
-
-    return {
-      'id': user.id,
-      'name': user.userMetadata?['name'],
-      'email': user.email,
-    };
+    return _currentUser;
   }
 
-  // Returns true if a user is currently logged in
-  // Use this to protect routes
   static bool isLoggedIn() {
-    return supabase.auth.currentUser != null;
+    return _currentUser != null;
   }
 }

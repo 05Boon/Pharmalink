@@ -16,7 +16,7 @@ import '../pages/reports_page.dart';
 import '../pages/audit_logs_page.dart';
 
 final appRouter = GoRouter(
-  initialLocation: '/',
+  initialLocation: '/register',
   routes: [
     GoRoute(
       path: '/',

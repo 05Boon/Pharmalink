@@ -1,13 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'routes/app_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-    await Supabase.initialize(
-    url: 'https://fjnbnbtjsuxumtmhcidh.supabase.co',
-    publishableKey: ' sb_publishable_t2XYPBX8gmvQpyXjXDaBUg_X6WdliU_',  );
   runApp(const PharmacyNetworkApp());
 }
 
