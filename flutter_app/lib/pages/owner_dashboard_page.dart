@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import '../widgets/app_nav.dart';
 import '../widgets/app_button.dart';
 import '../services/network_data_service.dart';
-import '../services/mock_data_store.dart';
 
 class OwnerDashboardPage extends StatelessWidget {
   const OwnerDashboardPage({super.key});
@@ -26,17 +25,13 @@ class OwnerDashboardPage extends StatelessWidget {
               builder: (context, snapshot) {
                 final data = snapshot.data ?? const <String, dynamic>{};
                 final stats = (data['stats'] as Map<String, dynamic>?) ??
-                    Map<String, dynamic>.from(MockDataStore.ownerStats);
+                  const <String, dynamic>{};
                 final recentRequests = (data['recent_requests'] as List?)
-                        ?.cast<Map<String, dynamic>>() ??
-                    MockDataStore.ownerRecentRequests
-                        .map((item) => Map<String, dynamic>.from(item))
-                        .toList();
+                    ?.cast<Map<String, dynamic>>() ??
+                  const <Map<String, dynamic>>[];
                 final activeQueries = (data['active_queries'] as List?)
-                        ?.cast<Map<String, dynamic>>() ??
-                    MockDataStore.ownerActiveQueries
-                        .map((item) => Map<String, dynamic>.from(item))
-                        .toList();
+                    ?.cast<Map<String, dynamic>>() ??
+                  const <Map<String, dynamic>>[];
 
                 return SingleChildScrollView(
                   padding: const EdgeInsets.all(14),
@@ -105,8 +100,7 @@ class OwnerDashboardPage extends StatelessWidget {
                                     ...recentRequests.map((req) {
                                       final status =
                                           '${req['status'] ?? 'Pending'}';
-                                      final style =
-                                          MockDataStore.statusStyle(status);
+                                      final style = _statusStyle(status);
                                       return _RequestItem(
                                         drug:
                                             '${req['drug'] ?? req['drug_name'] ?? '-'}',
@@ -139,8 +133,7 @@ class OwnerDashboardPage extends StatelessWidget {
                                     ...activeQueries.map((query) {
                                       final status =
                                           '${query['status'] ?? '-'}';
-                                      final style =
-                                          MockDataStore.statusStyle(status);
+                                      final style = _statusStyle(status);
                                       return _QueryItem(
                                         drug:
                                             '${query['drug'] ?? query['drug_name'] ?? '-'}',
@@ -174,6 +167,32 @@ class OwnerDashboardPage extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+({Color color, Color textColor}) _statusStyle(String status) {
+  switch (status.toLowerCase()) {
+    case 'accepted':
+    case 'completed':
+    case 'done':
+    case 'active':
+    case 'matched':
+      return (
+        color: const Color(0xFFE1F5EE),
+        textColor: const Color(0xFF085041),
+      );
+    case 'pending':
+    case 'searching':
+    case 'review':
+      return (
+        color: const Color(0xFFFAEEDA),
+        textColor: const Color(0xFF633806),
+      );
+    default:
+      return (
+        color: const Color(0xFFFCEBEB),
+        textColor: const Color(0xFF791F1F),
+      );
   }
 }
 

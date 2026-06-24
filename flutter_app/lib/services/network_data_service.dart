@@ -3,9 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
-import '../config/app_environment.dart';
 import 'auth_service.dart';
-import 'mock_data_store.dart';
 
 class NetworkDataService {
   NetworkDataService._();
@@ -60,123 +58,89 @@ class NetworkDataService {
     return <Map<String, dynamic>>[];
   }
 
-  static Future<List<Map<String, dynamic>>> _safeGetList(
-    String url,
-    List<Map<String, String>> fallback,
-  ) async {
-    if (AppEnvironment.useMockData) {
-      return fallback.map((item) => Map<String, dynamic>.from(item)).toList();
+  static Future<List<Map<String, dynamic>>> _getList(String url) async {
+    final response = await _client.get(
+      Uri.parse(url),
+      headers: _headers(),
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('Request failed with status ${response.statusCode}');
     }
 
-    try {
-      final response = await _client.get(
-        Uri.parse(url),
-        headers: _headers(),
-      );
+    final decoded = _decodeBody(response.body);
+    return _extractList(decoded);
+  }
 
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        return fallback.map((item) => Map<String, dynamic>.from(item)).toList();
-      }
+  static Future<Map<String, dynamic>> _getMap(String url) async {
+    final response = await _client.get(
+      Uri.parse(url),
+      headers: _headers(),
+    );
 
-      final decoded = _decodeBody(response.body);
-      final list = _extractList(decoded);
-
-      if (list.isEmpty) {
-        return fallback.map((item) => Map<String, dynamic>.from(item)).toList();
-      }
-
-      return list;
-    } catch (_) {
-      return fallback.map((item) => Map<String, dynamic>.from(item)).toList();
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('Request failed with status ${response.statusCode}');
     }
+
+    final decoded = _decodeBody(response.body);
+    if (decoded is Map<String, dynamic>) {
+      final data = decoded['data'];
+      if (data is Map<String, dynamic>) {
+        return data;
+      }
+      return decoded;
+    }
+
+    throw Exception('Unexpected response format');
   }
 
   static Future<Map<String, dynamic>> getOwnerDashboardData() async {
-    final requests = await getIncomingRequests();
-    final transactions = await getTransactionHistory();
-
-    final activeQueries = MockDataStore.ownerActiveQueries
-        .map((item) => Map<String, dynamic>.from(item))
-        .toList();
-
-    return {
-      'stats': {
-        'active_queries': '${activeQueries.length}',
-        'requests_received': '${requests.length}',
-        'completed':
-            '${transactions.where((txn) => '${txn['status']}'.toLowerCase() == 'completed').length}',
-      },
-      'recent_requests': requests,
-      'active_queries': activeQueries,
-    };
+    return _getMap('${ApiConfig.baseUrl}/dashboard');
   }
 
   static Future<List<Map<String, dynamic>>> searchDrugs(String query) async {
     final encoded = Uri.encodeQueryComponent(query.trim());
-    return _safeGetList(
-      '${ApiConfig.drugsSearchUrl}?query=$encoded',
-      MockDataStore.searchResults,
-    );
+    return _getList('${ApiConfig.drugsSearchUrl}?query=$encoded');
   }
 
   static Future<List<Map<String, dynamic>>> getIncomingRequests() async {
-    return _safeGetList(ApiConfig.requestsUrl, MockDataStore.incomingRequests);
+    return _getList(ApiConfig.requestsUrl);
   }
 
   static Future<List<Map<String, dynamic>>> getTransactionHistory() async {
-    return _safeGetList(
-        ApiConfig.transactionsUrl, MockDataStore.transactionHistory);
+    return _getList(ApiConfig.transactionsUrl);
   }
 
   static Future<Map<String, dynamic>> getSentRequestDetails() async {
-    return Map<String, dynamic>.from(MockDataStore.sentRequest);
+    return _getMap('${ApiConfig.requestsUrl}/sent/current');
   }
 
   static Future<Map<String, dynamic>> getAcceptedRequestDetails() async {
-    return Map<String, dynamic>.from(MockDataStore.acceptedRequest);
+    return _getMap('${ApiConfig.requestsUrl}/accepted/current');
   }
 
   static Future<Map<String, dynamic>> getAdminDashboardData() async {
-    final recentTransactions = await _safeGetList(
-      ApiConfig.transactionsUrl,
-      MockDataStore.adminRecentTransactions,
-    );
-
-    return {
-      'stats': Map<String, dynamic>.from(MockDataStore.adminStats),
-      'recent_transactions': recentTransactions,
-      'pending_approvals': MockDataStore.adminPendingApprovals
-          .map((item) => Map<String, dynamic>.from(item))
-          .toList(),
-      'system_health': MockDataStore.adminSystemHealth
-          .map((item) => Map<String, dynamic>.from(item))
-          .toList(),
-    };
+    return _getMap('${ApiConfig.baseUrl}/admin/dashboard');
   }
 
   static Future<List<Map<String, dynamic>>> getPharmacies() async {
-    return _safeGetList(ApiConfig.meUrl, MockDataStore.pharmacies);
+    return _getList('${ApiConfig.baseUrl}/admin/pharmacies');
   }
 
   static Future<Map<String, dynamic>> getOnboardingDetail(
       String pharmacyId) async {
-    final detail = Map<String, dynamic>.from(MockDataStore.onboardingDetail);
-    detail['id'] = pharmacyId;
-    return detail;
+    return _getMap('${ApiConfig.baseUrl}/admin/pharmacies/$pharmacyId');
   }
 
   static Future<List<Map<String, dynamic>>> getMonitorTransactions() async {
-    return _safeGetList(
-        ApiConfig.transactionsUrl, MockDataStore.monitorTransactions);
+    return _getList('${ApiConfig.baseUrl}/admin/transactions');
   }
 
   static Future<List<Map<String, dynamic>>> getAuditLogs() async {
-    return _safeGetList(ApiConfig.requestsUrl, MockDataStore.auditLogs);
+    return _getList('${ApiConfig.baseUrl}/admin/logs');
   }
 
   static Future<List<Map<String, dynamic>>> getReportCards() async {
-    return MockDataStore.reportCards
-        .map((item) => Map<String, dynamic>.from(item))
-        .toList();
+    return _getList('${ApiConfig.baseUrl}/admin/reports');
   }
 }

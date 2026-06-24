@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/app_nav.dart';
-import '../services/mock_data_store.dart';
+import '../services/network_data_service.dart';
 
 class ReportsPage extends StatelessWidget {
   const ReportsPage({super.key});
@@ -16,50 +16,65 @@ class ReportsPage extends StatelessWidget {
             NavLink(label: 'Logout', path: '/'),
           ]),
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border.all(color: const Color(0xFFB4B2A9)),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Reports',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF1A1A18),
-                      ),
+            child: FutureBuilder<List<Map<String, dynamic>>>(
+              future: NetworkDataService.getReportCards(),
+              builder: (context, snapshot) {
+                final reports = snapshot.data ?? const <Map<String, dynamic>>[];
+                return Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: const Color(0xFFB4B2A9)),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    const SizedBox(height: 12),
-                    ...MockDataStore.reportCards.asMap().entries.map((entry) {
-                      final idx = entry.key;
-                      final card = entry.value;
-                      return Padding(
-                        padding: EdgeInsets.only(
-                            bottom: idx == MockDataStore.reportCards.length - 1
-                                ? 0
-                                : 8),
-                        child: _ReportCard(
-                          title: card['title'] ?? '-',
-                          description: card['description'] ?? '-',
-                          icon: MockDataStore.reportIcon(card['icon'] ?? ''),
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Reports',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF1A1A18),
+                          ),
                         ),
-                      );
-                    }),
-                  ],
-                ),
-              ),
+                        const SizedBox(height: 12),
+                        if (snapshot.connectionState == ConnectionState.waiting)
+                          const Center(child: CircularProgressIndicator()),
+                        if (snapshot.connectionState != ConnectionState.waiting)
+                          ...reports.map((card) => Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: _ReportCard(
+                                  title: '${card['title'] ?? '-'}',
+                                  description: '${card['description'] ?? '-'}',
+                                  icon: _reportIcon('${card['icon'] ?? ''}'),
+                                ),
+                              )),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ],
       ),
     );
+  }
+}
+
+IconData _reportIcon(String iconName) {
+  switch (iconName) {
+    case 'bar_chart':
+      return Icons.bar_chart;
+    case 'assessment':
+      return Icons.assessment;
+    case 'medication':
+      return Icons.medication;
+    default:
+      return Icons.description;
   }
 }
 

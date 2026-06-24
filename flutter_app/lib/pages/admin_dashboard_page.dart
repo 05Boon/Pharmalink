@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../widgets/app_nav.dart';
-import '../services/mock_data_store.dart';
 import '../services/network_data_service.dart';
 
 class AdminDashboardPage extends StatelessWidget {
@@ -26,23 +25,17 @@ class AdminDashboardPage extends StatelessWidget {
               builder: (context, snapshot) {
                 final data = snapshot.data ?? const <String, dynamic>{};
                 final stats = (data['stats'] as Map<String, dynamic>?) ??
-                    Map<String, dynamic>.from(MockDataStore.adminStats);
+                    const <String, dynamic>{};
                 final recentTransactions =
                     (data['recent_transactions'] as List?)
                             ?.cast<Map<String, dynamic>>() ??
-                        MockDataStore.adminRecentTransactions
-                            .map((item) => Map<String, dynamic>.from(item))
-                            .toList();
+                        const <Map<String, dynamic>>[];
                 final pendingApprovals = (data['pending_approvals'] as List?)
                         ?.cast<Map<String, dynamic>>() ??
-                    MockDataStore.adminPendingApprovals
-                        .map((item) => Map<String, dynamic>.from(item))
-                        .toList();
+                    const <Map<String, dynamic>>[];
                 final systemHealth = (data['system_health'] as List?)
                         ?.cast<Map<String, dynamic>>() ??
-                    MockDataStore.adminSystemHealth
-                        .map((item) => Map<String, dynamic>.from(item))
-                        .toList();
+                    const <Map<String, dynamic>>[];
 
                 return SingleChildScrollView(
                   padding: const EdgeInsets.all(14),
@@ -108,8 +101,7 @@ class AdminDashboardPage extends StatelessWidget {
                                     const SizedBox(height: 6),
                                     ...recentTransactions.map((txn) {
                                       final status = '${txn['status'] ?? '-'}';
-                                      final style =
-                                          MockDataStore.statusStyle(status);
+                                      final style = _statusStyle(status);
                                       return _TransactionItem(
                                         id: '${txn['id'] ?? txn['transaction_id'] ?? '-'}',
                                         from: '${txn['from'] ?? '-'}',
@@ -166,8 +158,7 @@ class AdminDashboardPage extends StatelessWidget {
                                     ...systemHealth.map((item) {
                                       final state =
                                           '${item['state'] ?? 'neutral'}';
-                                      final style =
-                                          MockDataStore.statusStyle(state);
+                                      final style = _statusStyle(state);
                                       return _HealthItem(
                                         label: '${item['label'] ?? '-'}',
                                         value: '${item['value'] ?? '-'}',
@@ -189,6 +180,33 @@ class AdminDashboardPage extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+({Color color, Color textColor}) _statusStyle(String status) {
+  switch (status.toLowerCase()) {
+    case 'accepted':
+    case 'completed':
+    case 'done':
+    case 'active':
+    case 'matched':
+    case 'good':
+      return (
+        color: const Color(0xFFE1F5EE),
+        textColor: const Color(0xFF085041),
+      );
+    case 'pending':
+    case 'searching':
+    case 'review':
+      return (
+        color: const Color(0xFFFAEEDA),
+        textColor: const Color(0xFF633806),
+      );
+    default:
+      return (
+        color: const Color(0xFFFCEBEB),
+        textColor: const Color(0xFF791F1F),
+      );
   }
 }
 
