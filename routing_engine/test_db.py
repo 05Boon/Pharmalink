@@ -11,7 +11,7 @@ async def test_connection():
             print("\nCONNECTION SUCCESSFUL!")
             print(f"PostGIS version running in Docker: {version}\n")
     except Exception as e:
-        print("\nCONNECTION FAILED")
+        print("\nCONNECTION FAILED!")
         print(f"Error details: {e}\n")
 
 if __name__ == "__main__":

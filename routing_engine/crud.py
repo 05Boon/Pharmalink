@@ -1,8 +1,10 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
+from sqlalchemy import cast, func
+from geoalchemy2 import Geography
 from typing import Optional, List
-from models import StockRequest, AlertNotification
+from models import StockRequest, AlertNotification, PharmacyNode, InventoryItem
 import schemas
 
 async def create_stock_request(db: AsyncSession, request: schemas.StockRequestCreate) -> StockRequest:
@@ -79,3 +81,32 @@ async def update_alert_status(db: AsyncSession, alert_id: str, status: str) -> O
         await db.commit()
         await db.refresh(db_alert)
     return db_alert
+
+async def find_neighboring_pharmacies(
+    db: AsyncSession,
+    origin_ewkt: str,
+    radius_meters: float,
+    drug_name: str,
+    required_quantity: int
+) -> List[PharmacyNode]:
+    """
+    Finds neighboring pharmacy nodes within a given search radius (in meters)
+    that hold a sufficient quantity of a specified drug.
+    Uses PostGIS ST_DWithin function over geography cast of SRID 4326.
+    """
+    stmt = (
+        select(PharmacyNode)
+        .join(InventoryItem, PharmacyNode.pharmacy_id == InventoryItem.pharmacy_id)
+        .where(
+            func.ST_DWithin(
+                cast(PharmacyNode.location, Geography),
+                cast(func.ST_GeomFromEWKT(origin_ewkt), Geography),
+                radius_meters
+            )
+        )
+        .where(InventoryItem.drug_name == drug_name)
+        .where(InventoryItem.stock_quantity >= required_quantity)
+        .distinct()
+    )
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
