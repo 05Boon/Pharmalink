@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/app_nav.dart';
+import '../services/mock_data_store.dart';
 
 class ReportsPage extends StatelessWidget {
   const ReportsPage({super.key});
@@ -24,10 +25,10 @@ class ReportsPage extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 padding: const EdgeInsets.all(14),
-                child: const Column(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       'Reports',
                       style: TextStyle(
                         fontSize: 13,
@@ -35,24 +36,22 @@ class ReportsPage extends StatelessWidget {
                         color: Color(0xFF1A1A18),
                       ),
                     ),
-                    SizedBox(height: 12),
-                    _ReportCard(
-                      title: 'Monthly summary',
-                      description: 'Transaction and activity report',
-                      icon: Icons.bar_chart,
-                    ),
-                    SizedBox(height: 8),
-                    _ReportCard(
-                      title: 'Pharmacy performance',
-                      description: 'Response times and success rates',
-                      icon: Icons.assessment,
-                    ),
-                    SizedBox(height: 8),
-                    _ReportCard(
-                      title: 'Drug availability',
-                      description: 'Most requested drugs',
-                      icon: Icons.medication,
-                    ),
+                    const SizedBox(height: 12),
+                    ...MockDataStore.reportCards.asMap().entries.map((entry) {
+                      final idx = entry.key;
+                      final card = entry.value;
+                      return Padding(
+                        padding: EdgeInsets.only(
+                            bottom: idx == MockDataStore.reportCards.length - 1
+                                ? 0
+                                : 8),
+                        child: _ReportCard(
+                          title: card['title'] ?? '-',
+                          description: card['description'] ?? '-',
+                          icon: MockDataStore.reportIcon(card['icon'] ?? ''),
+                        ),
+                      );
+                    }),
                   ],
                 ),
               ),
@@ -109,7 +108,8 @@ class _ReportCard extends StatelessWidget {
               ],
             ),
           ),
-          const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFF5F5E5A)),
+          const Icon(Icons.arrow_forward_ios,
+              size: 14, color: Color(0xFF5F5E5A)),
         ],
       ),
     );

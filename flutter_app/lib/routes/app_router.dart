@@ -40,7 +40,9 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/search/results',
-      builder: (context, state) => const SearchResultsPage(),
+      builder: (context, state) => SearchResultsPage(
+        query: state.uri.queryParameters['q'],
+      ),
     ),
     GoRoute(
       path: '/requests',

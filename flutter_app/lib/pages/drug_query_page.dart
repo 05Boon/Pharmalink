@@ -13,6 +13,13 @@ class DrugQueryPage extends StatefulWidget {
 
 class _DrugQueryPageState extends State<DrugQueryPage> {
   int selectedRadius = 10;
+  final _drugNameController = TextEditingController();
+
+  @override
+  void dispose() {
+    _drugNameController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +48,8 @@ class _DrugQueryPageState extends State<DrugQueryPage> {
                     children: [
                       RichText(
                         text: const TextSpan(
-                          style: TextStyle(fontSize: 10, color: Color(0xFF5F5E5A)),
+                          style:
+                              TextStyle(fontSize: 10, color: Color(0xFF5F5E5A)),
                           children: [
                             TextSpan(text: 'Dashboard / '),
                             TextSpan(
@@ -69,11 +77,13 @@ class _DrugQueryPageState extends State<DrugQueryPage> {
                         ),
                       ),
                       const SizedBox(height: 10),
-                      const AppTextField(
+                      AppTextField(
                         placeholder: 'Drug name / generic name',
+                        controller: _drugNameController,
                       ),
                       const AppTextField(placeholder: 'Quantity needed'),
-                      const AppTextField(placeholder: 'Dosage / form (optional)'),
+                      const AppTextField(
+                          placeholder: 'Dosage / form (optional)'),
                       const SizedBox(height: 8),
                       const Text(
                         'Search radius',
@@ -120,7 +130,16 @@ class _DrugQueryPageState extends State<DrugQueryPage> {
                       const SizedBox(height: 4),
                       AppButton(
                         text: 'Search now',
-                        onPressed: () => context.go('/search/results'),
+                        onPressed: () {
+                          final q = _drugNameController.text.trim();
+                          if (q.isEmpty) {
+                            context.go('/search/results');
+                            return;
+                          }
+
+                          final encoded = Uri.encodeQueryComponent(q);
+                          context.go('/search/results?q=$encoded');
+                        },
                       ),
                       const SizedBox(height: 6),
                       SizedBox(

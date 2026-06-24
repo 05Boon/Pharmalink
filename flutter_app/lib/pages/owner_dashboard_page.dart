@@ -2,63 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../widgets/app_nav.dart';
 import '../widgets/app_button.dart';
+import '../services/network_data_service.dart';
+import '../services/mock_data_store.dart';
 
 class OwnerDashboardPage extends StatelessWidget {
   const OwnerDashboardPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final recentRequests = [
-      {
-        'drug': 'Amoxicillin 500mg',
-        'from': 'City Pharmacy',
-        'time': '2 min ago',
-        'status': 'Pending',
-        'color': const Color(0xFFFAEEDA),
-        'textColor': const Color(0xFF633806),
-      },
-      {
-        'drug': 'Metformin 1g',
-        'from': 'HealthPlus',
-        'time': '1 hr ago',
-        'status': 'Accepted',
-        'color': const Color(0xFFE1F5EE),
-        'textColor': const Color(0xFF085041),
-      },
-      {
-        'drug': 'Ibuprofen 400mg',
-        'from': 'MediCare',
-        'time': '3 hr ago',
-        'status': 'Declined',
-        'color': const Color(0xFFFCEBEB),
-        'textColor': const Color(0xFF791F1F),
-      },
-    ];
-
-    final activeQueries = [
-      {
-        'drug': 'Ciprofloxacin 250mg',
-        'meta': 'Searching nearby…',
-        'status': 'Searching',
-        'color': const Color(0xFFFAEEDA),
-        'textColor': const Color(0xFF633806),
-      },
-      {
-        'drug': 'Atenolol 50mg',
-        'meta': 'Match found',
-        'status': 'Matched',
-        'color': const Color(0xFFE1F5EE),
-        'textColor': const Color(0xFF085041),
-      },
-      {
-        'drug': 'Paracetamol 500mg',
-        'meta': 'No match found',
-        'status': 'Unmatched',
-        'color': const Color(0xFFFCEBEB),
-        'textColor': const Color(0xFF791F1F),
-      },
-    ];
-
     return Scaffold(
       body: Column(
         children: [
@@ -70,108 +21,154 @@ class OwnerDashboardPage extends StatelessWidget {
             NavLink(label: 'Logout', path: '/'),
           ]),
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(14),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border.all(color: const Color(0xFFB4B2A9)),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Dashboard',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Color(0xFF5F5E5A),
-                      ),
+            child: FutureBuilder<Map<String, dynamic>>(
+              future: NetworkDataService.getOwnerDashboardData(),
+              builder: (context, snapshot) {
+                final data = snapshot.data ?? const <String, dynamic>{};
+                final stats = (data['stats'] as Map<String, dynamic>?) ??
+                    Map<String, dynamic>.from(MockDataStore.ownerStats);
+                final recentRequests = (data['recent_requests'] as List?)
+                        ?.cast<Map<String, dynamic>>() ??
+                    MockDataStore.ownerRecentRequests
+                        .map((item) => Map<String, dynamic>.from(item))
+                        .toList();
+                final activeQueries = (data['active_queries'] as List?)
+                        ?.cast<Map<String, dynamic>>() ??
+                    MockDataStore.ownerActiveQueries
+                        .map((item) => Map<String, dynamic>.from(item))
+                        .toList();
+
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(14),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: const Color(0xFFB4B2A9)),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    const SizedBox(height: 8),
-                    const Row(
-                      children: [
-                        Expanded(
-                          child: _StatCard(value: '3', label: 'Active queries'),
-                        ),
-                        SizedBox(width: 6),
-                        Expanded(
-                          child:
-                              _StatCard(value: '12', label: 'Requests received'),
-                        ),
-                        SizedBox(width: 6),
-                        Expanded(
-                          child: _StatCard(value: '8', label: 'Completed'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Recent requests',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xFF1A1A18),
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              ...recentRequests.map((req) => _RequestItem(
-                                    drug: req['drug'] as String,
-                                    from: req['from'] as String,
-                                    time: req['time'] as String,
-                                    status: req['status'] as String,
-                                    color: req['color'] as Color,
-                                    textColor: req['textColor'] as Color,
-                                  )),
-                            ],
+                        const Text(
+                          'Dashboard',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Color(0xFF5F5E5A),
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _StatCard(
+                                value: '${stats['active_queries'] ?? '0'}',
+                                label: 'Active queries',
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: _StatCard(
+                                value: '${stats['requests_received'] ?? '0'}',
+                                label: 'Requests received',
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: _StatCard(
+                                value: '${stats['completed'] ?? '0'}',
+                                label: 'Completed',
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        if (snapshot.connectionState == ConnectionState.waiting)
+                          const Center(child: CircularProgressIndicator()),
+                        if (snapshot.connectionState != ConnectionState.waiting)
+                          Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'My active queries',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xFF1A1A18),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Recent requests',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                        color: Color(0xFF1A1A18),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    ...recentRequests.map((req) {
+                                      final status =
+                                          '${req['status'] ?? 'Pending'}';
+                                      final style =
+                                          MockDataStore.statusStyle(status);
+                                      return _RequestItem(
+                                        drug:
+                                            '${req['drug'] ?? req['drug_name'] ?? '-'}',
+                                        from:
+                                            '${req['from'] ?? req['source'] ?? '-'}',
+                                        time:
+                                            '${req['time'] ?? req['created_at'] ?? '-'}',
+                                        status: status,
+                                        color: style.color,
+                                        textColor: style.textColor,
+                                      );
+                                    }),
+                                  ],
                                 ),
                               ),
-                              const SizedBox(height: 6),
-                              ...activeQueries.map((query) => _QueryItem(
-                                    drug: query['drug'] as String,
-                                    meta: query['meta'] as String,
-                                    status: query['status'] as String,
-                                    color: query['color'] as Color,
-                                    textColor: query['textColor'] as Color,
-                                  )),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'My active queries',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                        color: Color(0xFF1A1A18),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    ...activeQueries.map((query) {
+                                      final status =
+                                          '${query['status'] ?? '-'}';
+                                      final style =
+                                          MockDataStore.statusStyle(status);
+                                      return _QueryItem(
+                                        drug:
+                                            '${query['drug'] ?? query['drug_name'] ?? '-'}',
+                                        meta: '${query['meta'] ?? '-'}',
+                                        status: status,
+                                        color: style.color,
+                                        textColor: style.textColor,
+                                      );
+                                    }),
+                                  ],
+                                ),
+                              ),
                             ],
+                          ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: 180,
+                          child: AppButton(
+                            text: '+ New drug query',
+                            onPressed: () => context.go('/search'),
+                            fullWidth: false,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: 180,
-                      child: AppButton(
-                        text: '+ New drug query',
-                        onPressed: () => context.go('/search'),
-                        fullWidth: false,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             ),
           ),
         ],

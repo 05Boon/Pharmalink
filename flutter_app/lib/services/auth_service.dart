@@ -8,6 +8,9 @@ class AuthService {
   static Map<String, dynamic>? _currentUser;
   static String? _accessToken;
 
+  static String? get accessToken => _accessToken;
+  static Map<String, dynamic>? get currentUser => _currentUser;
+
   static Map<String, String> _headers({bool withAuth = false}) {
     final headers = <String, String>{
       'Content-Type': 'application/json',
@@ -61,7 +64,8 @@ class AuthService {
     };
   }
 
-  static String _extractErrorMessage(Map<String, dynamic>? body, int statusCode) {
+  static String _extractErrorMessage(
+      Map<String, dynamic>? body, int statusCode) {
     if (body == null) {
       return 'Request failed with status $statusCode';
     }
@@ -93,7 +97,9 @@ class AuthService {
       return;
     }
 
-    if (data.containsKey('id') || data.containsKey('email') || data.containsKey('name')) {
+    if (data.containsKey('id') ||
+        data.containsKey('email') ||
+        data.containsKey('name')) {
       _currentUser = {
         'id': data['id'],
         'name': data['name'],
@@ -106,6 +112,8 @@ class AuthService {
     required String name,
     required String email,
     required String password,
+    required String licenseNumber,
+    required String phoneNumber,
     required double latitude,
     required double longitude,
   }) async {
@@ -117,6 +125,8 @@ class AuthService {
           'name': name,
           'email': email,
           'password': password,
+          'license_number': licenseNumber,
+          'phone_number': phoneNumber,
           'latitude': latitude,
           'longitude': longitude,
         }),

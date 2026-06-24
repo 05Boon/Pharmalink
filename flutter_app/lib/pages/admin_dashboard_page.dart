@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../widgets/app_nav.dart';
+import '../services/mock_data_store.dart';
+import '../services/network_data_service.dart';
 
 class AdminDashboardPage extends StatelessWidget {
   const AdminDashboardPage({super.key});
@@ -19,127 +21,169 @@ class AdminDashboardPage extends StatelessWidget {
             NavLink(label: 'Logout', path: '/'),
           ]),
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(14),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border.all(color: const Color(0xFFB4B2A9)),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  children: [
-                    const Row(
+            child: FutureBuilder<Map<String, dynamic>>(
+              future: NetworkDataService.getAdminDashboardData(),
+              builder: (context, snapshot) {
+                final data = snapshot.data ?? const <String, dynamic>{};
+                final stats = (data['stats'] as Map<String, dynamic>?) ??
+                    Map<String, dynamic>.from(MockDataStore.adminStats);
+                final recentTransactions =
+                    (data['recent_transactions'] as List?)
+                            ?.cast<Map<String, dynamic>>() ??
+                        MockDataStore.adminRecentTransactions
+                            .map((item) => Map<String, dynamic>.from(item))
+                            .toList();
+                final pendingApprovals = (data['pending_approvals'] as List?)
+                        ?.cast<Map<String, dynamic>>() ??
+                    MockDataStore.adminPendingApprovals
+                        .map((item) => Map<String, dynamic>.from(item))
+                        .toList();
+                final systemHealth = (data['system_health'] as List?)
+                        ?.cast<Map<String, dynamic>>() ??
+                    MockDataStore.adminSystemHealth
+                        .map((item) => Map<String, dynamic>.from(item))
+                        .toList();
+
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(14),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: const Color(0xFFB4B2A9)),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
                       children: [
-                        Expanded(child: _StatCard(value: '47', label: 'Pharmacies')),
-                        SizedBox(width: 6),
-                        Expanded(child: _StatCard(value: '132', label: 'Queries today')),
-                        SizedBox(width: 6),
-                        Expanded(child: _StatCard(value: '89', label: 'Completed')),
-                        SizedBox(width: 6),
-                        Expanded(child: _StatCard(value: '5', label: 'Pending approvals')),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _StatCard(
+                                value: '${stats['pharmacies'] ?? '0'}',
+                                label: 'Pharmacies',
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: _StatCard(
+                                value: '${stats['queries_today'] ?? '0'}',
+                                label: 'Queries today',
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: _StatCard(
+                                value: '${stats['completed'] ?? '0'}',
+                                label: 'Completed',
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: _StatCard(
+                                value: '${stats['pending_approvals'] ?? '0'}',
+                                label: 'Pending approvals',
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        if (snapshot.connectionState == ConnectionState.waiting)
+                          const Center(child: CircularProgressIndicator()),
+                        if (snapshot.connectionState != ConnectionState.waiting)
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Recent transactions',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                        color: Color(0xFF1A1A18),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    ...recentTransactions.map((txn) {
+                                      final status = '${txn['status'] ?? '-'}';
+                                      final style =
+                                          MockDataStore.statusStyle(status);
+                                      return _TransactionItem(
+                                        id: '${txn['id'] ?? txn['transaction_id'] ?? '-'}',
+                                        from: '${txn['from'] ?? '-'}',
+                                        status: status,
+                                        color: style.color,
+                                        textColor: style.textColor,
+                                      );
+                                    }),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Pending approvals',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                        color: Color(0xFF1A1A18),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    ...pendingApprovals.map((approval) {
+                                      final id = '${approval['id'] ?? '1'}';
+                                      return GestureDetector(
+                                        onTap: () => context.go(
+                                            '/admin/pharmacies/approve/$id'),
+                                        child: _ApprovalItem(
+                                          name: '${approval['name'] ?? '-'}',
+                                          time: '${approval['time'] ?? '-'}',
+                                        ),
+                                      );
+                                    }),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'System health',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                        color: Color(0xFF1A1A18),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    ...systemHealth.map((item) {
+                                      final state =
+                                          '${item['state'] ?? 'neutral'}';
+                                      final style =
+                                          MockDataStore.statusStyle(state);
+                                      return _HealthItem(
+                                        label: '${item['label'] ?? '-'}',
+                                        value: '${item['value'] ?? '-'}',
+                                        valueColor: style.textColor,
+                                      );
+                                    }),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Recent transactions',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xFF1A1A18),
-                                ),
-                              ),
-                              SizedBox(height: 6),
-                              _TransactionItem(
-                                id: 'TXN-00421',
-                                from: 'City → HealthPlus',
-                                status: 'Done',
-                                color: Color(0xFFE1F5EE),
-                                textColor: Color(0xFF085041),
-                              ),
-                              _TransactionItem(
-                                id: 'TXN-00420',
-                                from: 'MediCare → PharmCity',
-                                status: 'Pending',
-                                color: Color(0xFFFAEEDA),
-                                textColor: Color(0xFF633806),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Pending approvals',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xFF1A1A18),
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              GestureDetector(
-                                onTap: () => context.go('/admin/pharmacies/approve/1'),
-                                child: const _ApprovalItem(
-                                  name: 'Green Leaf',
-                                  time: 'Applied 2 days ago',
-                                ),
-                              ),
-                              const _ApprovalItem(
-                                name: 'SunCare Chemist',
-                                time: 'Applied today',
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'System health',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xFF1A1A18),
-                                ),
-                              ),
-                              SizedBox(height: 6),
-                              _HealthItem(
-                                label: 'Uptime',
-                                value: '99.8%',
-                                valueColor: Color(0xFF085041),
-                              ),
-                              _HealthItem(
-                                label: 'Avg response',
-                                value: '4.2 min',
-                                valueColor: Color(0xFF1A1A18),
-                              ),
-                              _HealthItem(
-                                label: 'Match rate',
-                                value: '89%',
-                                valueColor: Color(0xFF085041),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             ),
           ),
         ],

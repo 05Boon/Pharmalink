@@ -20,6 +20,8 @@ class _RegisterPageState extends State<RegisterPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _pharmacyNameController = TextEditingController();
+  final _licenseNumberController = TextEditingController();
+  final _phoneNumberController = TextEditingController();
 
   // Stores the location the user tapped on the map
   // Null means user hasn't picked a location yet
@@ -44,6 +46,8 @@ class _RegisterPageState extends State<RegisterPage> {
     _emailController.dispose();
     _passwordController.dispose();
     _pharmacyNameController.dispose();
+    _licenseNumberController.dispose();
+    _phoneNumberController.dispose();
     _mapController.dispose();
     super.dispose();
   }
@@ -59,7 +63,9 @@ class _RegisterPageState extends State<RegisterPage> {
     if (_nameController.text.trim().isEmpty ||
         _emailController.text.trim().isEmpty ||
         _passwordController.text.trim().isEmpty ||
-        _pharmacyNameController.text.trim().isEmpty) {
+        _pharmacyNameController.text.trim().isEmpty ||
+        _licenseNumberController.text.trim().isEmpty ||
+        _phoneNumberController.text.trim().isEmpty) {
       setState(() {
         _errorMessage = 'Please fill in all fields';
         _isLoading = false;
@@ -91,6 +97,8 @@ class _RegisterPageState extends State<RegisterPage> {
       name: _pharmacyNameController.text.trim(),
       email: _emailController.text.trim(),
       password: _passwordController.text.trim(),
+      licenseNumber: _licenseNumberController.text.trim(),
+      phoneNumber: _phoneNumberController.text.trim(),
       // Coordinates from the map tap
       latitude: _pickedLocation!.latitude,
       longitude: _pickedLocation!.longitude,
@@ -177,6 +185,19 @@ class _RegisterPageState extends State<RegisterPage> {
                       AppTextField(
                         placeholder: 'Pharmacy name',
                         controller: _pharmacyNameController,
+                      ),
+
+                      // License number field
+                      AppTextField(
+                        placeholder: 'License number',
+                        controller: _licenseNumberController,
+                      ),
+
+                      // Phone number field
+                      AppTextField(
+                        placeholder: 'Phone number',
+                        keyboardType: TextInputType.phone,
+                        controller: _phoneNumberController,
                       ),
 
                       const SizedBox(height: 6),

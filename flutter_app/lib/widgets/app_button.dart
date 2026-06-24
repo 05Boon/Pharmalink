@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 
 class AppButton extends StatelessWidget {
   final String text;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;  // nullable to allow disabling
   final bool fullWidth;
 
   const AppButton({
     super.key,
     required this.text,
-    required this.onPressed,
+    this.onPressed,             // no longer required
     this.fullWidth = true,
   });
 
@@ -17,7 +17,7 @@ class AppButton extends StatelessWidget {
     return SizedBox(
       width: fullWidth ? double.infinity : null,
       child: ElevatedButton(
-        onPressed: onPressed,
+        onPressed: onPressed,   // null automatically disables the button
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF1D9E75),
           foregroundColor: const Color(0xFF04342C),
