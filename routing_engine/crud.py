@@ -110,3 +110,65 @@ async def find_neighboring_pharmacies(
     )
     result = await db.execute(stmt)
     return list(result.scalars().all())
+
+async def get_inventory_items(db: AsyncSession, pharmacy_id: str) -> List[InventoryItem]:
+    """
+    Retrieves all inventory items for a given pharmacy_id.
+    """
+    stmt = select(InventoryItem).where(InventoryItem.pharmacy_id == pharmacy_id)
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
+
+async def get_inventory_item(db: AsyncSession, item_id: str) -> Optional[InventoryItem]:
+    """
+    Retrieves a single inventory item by its item_id.
+    """
+    stmt = select(InventoryItem).where(InventoryItem.item_id == item_id)
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
+
+async def create_or_update_inventory_item(
+    db: AsyncSession,
+    pharmacy_id: str,
+    item: schemas.InventoryItemCreate
+) -> InventoryItem:
+    """
+    Adds a new drug to the inventory or updates its stock level if it already exists.
+    """
+    stmt = (
+        select(InventoryItem)
+        .where(InventoryItem.pharmacy_id == pharmacy_id)
+        .where(InventoryItem.drug_name == item.drug_name)
+    )
+    result = await db.execute(stmt)
+    db_item = result.scalar_one_or_none()
+    
+    if db_item:
+        db_item.stock_quantity = item.stock_quantity
+        if item.drug_category:
+            db_item.drug_category = item.drug_category
+    else:
+        db_item = InventoryItem(
+            pharmacy_id=pharmacy_id,
+            drug_name=item.drug_name,
+            drug_category=item.drug_category,
+            stock_quantity=item.stock_quantity
+        )
+        db.add(db_item)
+        
+    await db.commit()
+    await db.refresh(db_item)
+    return db_item
+
+async def update_inventory_item_stock(db: AsyncSession, item_id: str, stock_quantity: int) -> Optional[InventoryItem]:
+    """
+    Updates the stock level of a specific inventory item.
+    """
+    db_item = await get_inventory_item(db, item_id)
+    if db_item:
+        db_item.stock_quantity = stock_quantity
+        db.add(db_item)
+        await db.commit()
+        await db.refresh(db_item)
+    return db_item
+

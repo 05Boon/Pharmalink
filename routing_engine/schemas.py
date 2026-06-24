@@ -35,3 +35,30 @@ class StockRequestResponse(StockRequestBase):
     alerts: List[AlertNotificationResponse] = Field([], description="List of alert notifications sent to neighbors")
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# Client stock request input (omits pharmacy_id which is auto-injected from auth)
+class StockRequestCreateInput(BaseModel):
+    requested_drug: str = Field(..., min_length=1, description="Name of the requested drug")
+    required_quantity: int = Field(..., gt=0, description="Quantity required, must be greater than 0")
+    search_radius_meters: Optional[int] = Field(2000, gt=0, description="Search radius in meters, must be greater than 0")
+
+
+# InventoryItem schemas
+class InventoryItemCreate(BaseModel):
+    drug_name: str = Field(..., min_length=1, description="Name of the drug")
+    drug_category: Optional[str] = Field(None, description="Category of the drug")
+    stock_quantity: int = Field(0, ge=0, description="Current stock level, must be greater than or equal to 0")
+
+class InventoryItemUpdate(BaseModel):
+    stock_quantity: int = Field(..., ge=0, description="New stock level, must be greater than or equal to 0")
+
+class InventoryItemResponse(BaseModel):
+    item_id: str = Field(..., description="UUID of the inventory item")
+    pharmacy_id: str = Field(..., description="UUID of the associated pharmacy")
+    drug_name: str = Field(..., description="Name of the drug")
+    drug_category: Optional[str] = Field(None, description="Category of the drug")
+    stock_quantity: int = Field(..., description="Current stock level")
+    last_updated: datetime = Field(..., description="Timestamp when the stock level was last updated")
+
+    model_config = ConfigDict(from_attributes=True)

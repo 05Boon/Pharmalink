@@ -31,11 +31,16 @@ def resolve_token(token: str) -> Optional[str]:
     except Exception:
         return None
 
-def get_current_user_uuid(authorization: str = Header(...)) -> str:
+def get_current_user_uuid(authorization: Optional[str] = Header(None)) -> str:
     """
     FastAPI dependency that extracts and validates the current user's UUID.
     Expects a Bearer token in the Authorization header.
     """
+    if not authorization:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing Authorization header."
+        )
     if not authorization.startswith("Bearer "):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
