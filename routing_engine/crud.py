@@ -224,3 +224,37 @@ async def create_pharmacy_node(
     return db_node
 
 
+async def get_active_stock_requests(db: AsyncSession, pharmacy_id: str) -> List[StockRequest]:
+    """
+    Retrieves all active (PENDING) stock requests created by a pharmacy.
+    Eagerly loads the associated alerts relation.
+    """
+    stmt = (
+        select(StockRequest)
+        .where(StockRequest.pharmacy_id == pharmacy_id)
+        .where(StockRequest.request_status == "PENDING")
+        .options(selectinload(StockRequest.alerts))
+    )
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
+
+
+async def get_unread_alerts(db: AsyncSession, pharmacy_id: str) -> List[AlertNotification]:
+    """
+    Retrieves incoming, unread alert notifications sent to a pharmacy.
+    Eagerly loads both the stock request and the requesting pharmacy's profile details.
+    """
+    stmt = (
+        select(AlertNotification)
+        .where(AlertNotification.receiving_pharmacy_id == pharmacy_id)
+        .where(AlertNotification.alert_status == "UNREAD")
+        .options(
+            selectinload(AlertNotification.request)
+            .selectinload(StockRequest.pharmacy)
+        )
+    )
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
+
+
+

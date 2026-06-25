@@ -86,3 +86,35 @@ class PharmacyNodeResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
+class PharmacyBasicInfo(BaseModel):
+    pharmacy_id: str
+    business_name: str
+    email: str
+    phone_number: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class StockRequestDetailResponse(StockRequestBase):
+    request_id: str = Field(..., description="UUID of the stock request")
+    pharmacy_id: str = Field(..., description="UUID of the requesting pharmacy")
+    request_status: str = Field(..., description="Current status of the request (e.g. PENDING, FULFILLED)")
+    created_at: datetime = Field(..., description="Timestamp when the request was created")
+    pharmacy: PharmacyBasicInfo
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+
+class AlertNotificationDetailResponse(BaseModel):
+    alert_id: str
+    request_id: str
+    receiving_pharmacy_id: str
+    alert_status: str
+    delivered_at: datetime
+    request: StockRequestDetailResponse
+
+    model_config = ConfigDict(from_attributes=True)
+
+

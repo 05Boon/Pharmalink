@@ -156,3 +156,35 @@ async def create_request_and_broadcast(
         
     # 5. Fetch and return StockRequest with eagerly loaded Alert relationship
     return await crud.get_stock_request(db, db_request.request_id)
+
+
+@api_router.get(
+    "/broadcasts/active-requests",
+    response_model=List[schemas.StockRequestResponse],
+    summary="Get active stock requests created by the authenticated pharmacy"
+)
+async def get_my_active_requests(
+    pharmacy_id: str = Depends(get_current_user_uuid),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Returns all active (PENDING) stock requests created by the authenticated pharmacy.
+    """
+    return await crud.get_active_stock_requests(db, pharmacy_id)
+
+
+@api_router.get(
+    "/broadcasts/alerts/unread",
+    response_model=List[schemas.AlertNotificationDetailResponse],
+    summary="Get unread alert notifications sent to the authenticated pharmacy"
+)
+async def get_my_unread_alerts(
+    pharmacy_id: str = Depends(get_current_user_uuid),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Returns unread alert notifications targeted at the authenticated pharmacy,
+    including details of the stock request and the requesting pharmacy's profile.
+    """
+    return await crud.get_unread_alerts(db, pharmacy_id)
+

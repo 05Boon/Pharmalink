@@ -11,12 +11,11 @@ from models import Base, PharmacyNode, StockRequest, AlertNotification
 import schemas
 import crud
 
-# Fixture to set up test engine and database tables
 @pytest_asyncio.fixture
 async def test_engine():
     engine = create_async_engine(DATABASE_URL, echo=False, future=True)
     async with engine.begin() as conn:
-        # Create all tables (will create them if they do not exist)
+        await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
     yield engine
     await engine.dispose()
