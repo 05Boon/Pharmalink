@@ -9,13 +9,16 @@ Base = declarative_base()
 def generate_uuid():
     return str(uuid.uuid4())
 
+def utc_now():
+    return datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+
 class SystemAdmin(Base):
     __tablename__ = "system_admins"
 
     admin_id = Column(String, primary_key=True, default=generate_uuid)
     email = Column(String, nullable=False, unique=True)
     role_level = Column(Integer, default=1)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
 
 class PharmacyNode(Base):
     __tablename__ = "pharmacy_nodes"
@@ -32,7 +35,7 @@ class PharmacyNode(Base):
     location = Column(Geometry(geometry_type="POINT", srid=4326), nullable=False)
     
     account_status = Column(String, default="ACTIVE") 
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
 
     # Relationships
     inventory = relationship("InventoryItem", back_populates="pharmacy")
@@ -49,7 +52,7 @@ class InventoryItem(Base):
     drug_name = Column(String, nullable=False)
     drug_category = Column(String, nullable=True)
     stock_quantity = Column(Integer, default=0)
-    last_updated = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    last_updated = Column(DateTime, default=utc_now, onupdate=utc_now)
 
     # Relationships
     pharmacy = relationship("PharmacyNode", back_populates="inventory")
@@ -64,7 +67,7 @@ class StockRequest(Base):
     required_quantity = Column(Integer, nullable=False)
     search_radius_meters = Column(Integer, default=2000)
     request_status = Column(String, default="PENDING")
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
 
     # Relationships
     pharmacy = relationship("PharmacyNode", back_populates="requests")
@@ -80,7 +83,7 @@ class TransactionLog(Base):
     drug_category = Column(String, nullable=True)
     general_location = Column(String, nullable=True)
     final_outcome = Column(String, nullable=False) # e.g., "FULFILLED_BY_NEIGHBOR", "EXPIRED"
-    resolved_at = Column(DateTime, default=datetime.datetime.utcnow)
+    resolved_at = Column(DateTime, default=utc_now)
 
     # Relationships
     request = relationship("StockRequest", back_populates="logs")
@@ -95,7 +98,7 @@ class AlertNotification(Base):
     receiving_pharmacy_id = Column(String, ForeignKey("pharmacy_nodes.pharmacy_id", ondelete="CASCADE"), nullable=False, index=True)
     
     alert_status = Column(String, default="UNREAD")
-    delivered_at = Column(DateTime, default=datetime.datetime.utcnow)
+    delivered_at = Column(DateTime, default=utc_now)
 
     # Relationships
     request = relationship("StockRequest", back_populates="alerts")

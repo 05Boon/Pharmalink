@@ -172,3 +172,55 @@ async def update_inventory_item_stock(db: AsyncSession, item_id: str, stock_quan
         await db.refresh(db_item)
     return db_item
 
+
+async def get_pharmacy_node(db: AsyncSession, pharmacy_id: str) -> Optional[PharmacyNode]:
+    """
+    Retrieves a single pharmacy node by its pharmacy_id.
+    """
+    stmt = select(PharmacyNode).where(PharmacyNode.pharmacy_id == pharmacy_id)
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+async def get_pharmacy_node_by_license(db: AsyncSession, license_number: str) -> Optional[PharmacyNode]:
+    """
+    Retrieves a pharmacy node by its license_number.
+    """
+    stmt = select(PharmacyNode).where(PharmacyNode.license_number == license_number)
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+async def get_pharmacy_node_by_email(db: AsyncSession, email: str) -> Optional[PharmacyNode]:
+    """
+    Retrieves a pharmacy node by its email address.
+    """
+    stmt = select(PharmacyNode).where(PharmacyNode.email == email)
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+async def create_pharmacy_node(
+    db: AsyncSession,
+    pharmacy_id: str,
+    profile: schemas.PharmacyProfileSync
+) -> PharmacyNode:
+    """
+    Creates a new PharmacyNode entry using the provided profile details and custom primary key.
+    """
+    point_wkt = f"POINT({profile.longitude} {profile.latitude})"
+    db_node = PharmacyNode(
+        pharmacy_id=pharmacy_id,
+        business_name=profile.business_name,
+        license_number=profile.license_number,
+        email=profile.email,
+        phone_number=profile.phone_number,
+        location=f"SRID=4326;{point_wkt}",
+        account_status="ACTIVE"
+    )
+    db.add(db_node)
+    await db.commit()
+    await db.refresh(db_node)
+    return db_node
+
+

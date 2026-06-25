@@ -62,3 +62,27 @@ class InventoryItemResponse(BaseModel):
     last_updated: datetime = Field(..., description="Timestamp when the stock level was last updated")
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class PharmacyProfileSync(BaseModel):
+    business_name: str = Field(..., min_length=1, description="Registered name of the pharmacy")
+    license_number: str = Field(..., min_length=1, description="Unique license number issued by the PPB")
+    email: str = Field(..., description="Registered email address")
+    phone_number: str = Field(..., min_length=1, description="Primary contact phone number")
+    latitude: float = Field(..., ge=-90, le=90, description="GPS latitude coordinate")
+    longitude: float = Field(..., ge=-180, le=180, description="GPS longitude coordinate")
+
+
+class PharmacyNodeResponse(BaseModel):
+    pharmacy_id: str
+    business_name: str
+    license_number: str
+    email: str
+    phone_number: str
+    latitude: float
+    longitude: float
+    account_status: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+

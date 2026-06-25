@@ -5,6 +5,7 @@ import logging
 
 from dependencies import resolve_token, get_current_user_uuid
 from routers.api import api_router
+from routers.auth import auth_router
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -71,6 +72,7 @@ app.add_middleware(
 
 # Register REST endpoints router
 app.include_router(api_router)
+app.include_router(auth_router)
 
 @app.get("/")
 def read_root():

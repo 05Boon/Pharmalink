@@ -1,20 +1,49 @@
-node_modules
-dist
+# Node / Frontend Build
+node_modules/
+dist/
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+
+# IDEs & Editor configs
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+*.iml
+flutter_app/.idea/
+flutter_app/*.iml
+
+# Environment / Secret Files (NEVER PUSH SECRETS)
 .env
 .env.local
-flutter_app/.dart_tool
-flutter_app/build
+.env.*
+!.env.example
+routing_engine/.env
+routing_engine/.env.*
+
+# Python Cache & Testing
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+**/.pytest_cache/
+.cache/
+
+# Backend Virtual Environment
+routing_engine/venv/
+
+# Flutter / Dart Build Files & Configs
+flutter_app/.dart_tool/
+flutter_app/build/
 flutter_app/.flutter-plugins
 flutter_app/.flutter-plugins-dependencies
-
-# Ignore frontend build files
-flutter_app/.dart_tool/
 flutter_app/.packages
-flutter_app/build/
 
-# Ignore backend virtual environment and cache
-routing_engine/venv/
-routing_engine/__pycache__/
-
-# NEVER PUSH SECRETS
-routing_engine/.env
+# Agent / Tooling State
+.agents/
