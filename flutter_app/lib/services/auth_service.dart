@@ -1,42 +1,13 @@
-import 'dart:convert';
-
-import 'package:http/http.dart' as http;
-
+import 'package:dio/dio.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/api_config.dart';
+import '../core/network/auth_interceptor.dart';
 
 class AuthService {
   static Map<String, dynamic>? _currentUser;
-  static String? _accessToken;
 
-  static String? get accessToken => _accessToken;
   static Map<String, dynamic>? get currentUser => _currentUser;
-
-  static Map<String, String> _headers({bool withAuth = false}) {
-    final headers = <String, String>{
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    };
-
-    if (withAuth && _accessToken != null && _accessToken!.isNotEmpty) {
-      headers['Authorization'] = 'Bearer $_accessToken';
-    }
-
-    return headers;
-  }
-
-  static Map<String, dynamic>? _decodeJsonBody(String body) {
-    if (body.trim().isEmpty) return null;
-
-    try {
-      final decoded = jsonDecode(body);
-      if (decoded is Map<String, dynamic>) {
-        return decoded;
-      }
-      return {'data': decoded};
-    } catch (_) {
-      return null;
-    }
-  }
+  static String? get accessToken => Supabase.instance.client.auth.currentSession?.accessToken;
 
   static Map<String, dynamic> _failure({
     required String code,
@@ -48,67 +19,10 @@ class AuthService {
     };
   }
 
-  static Map<String, dynamic> _successFromBody(Map<String, dynamic>? body) {
-    if (body == null) {
-      return {'ok': true, 'message': 'Success'};
-    }
-
-    if (body.containsKey('ok')) {
-      return body;
-    }
-
-    return {
-      'ok': true,
-      'data': body,
-      'message': body['message'] ?? 'Success',
-    };
-  }
-
-  static String _extractErrorMessage(
-      Map<String, dynamic>? body, int statusCode) {
-    if (body == null) {
-      return 'Request failed with status $statusCode';
-    }
-
-    final error = body['error'];
-    if (error is Map<String, dynamic> && error['message'] is String) {
-      return error['message'] as String;
-    }
-
-    if (body['message'] is String) {
-      return body['message'] as String;
-    }
-
-    return 'Request failed with status $statusCode';
-  }
-
-  static void _cacheLoginState(Map<String, dynamic> result) {
-    final data = result['data'];
-    if (data is! Map<String, dynamic>) return;
-
-    final tokenCandidate = data['access_token'] ?? data['token'] ?? data['jwt'];
-    if (tokenCandidate is String && tokenCandidate.isNotEmpty) {
-      _accessToken = tokenCandidate;
-    }
-
-    final userCandidate = data['pharmacy'] ?? data['user'] ?? data['me'];
-    if (userCandidate is Map<String, dynamic>) {
-      _currentUser = userCandidate;
-      return;
-    }
-
-    if (data.containsKey('id') ||
-        data.containsKey('email') ||
-        data.containsKey('name')) {
-      _currentUser = {
-        'id': data['id'],
-        'name': data['name'],
-        'email': data['email'],
-      };
-    }
-  }
-
-  static Future<Map<String, dynamic>> register({
+  /// Registers a new pharmacy by executing Phase 1 (Supabase signUp) 
+  /// followed by Phase 2 (FastAPI profile sync).
+  /// If Phase 2 fails, it rolls back Phase 1 by logging the user out.
+  static Future<Map<String, dynamic>> registerPharmacy({
     required String name,
     required String email,
     required String password,
@@ -117,101 +31,189 @@ class AuthService {
     required double latitude,
     required double longitude,
   }) async {
+    final supabase = Supabase.instance.client;
     try {
-      final response = await http.post(
-        Uri.parse(ApiConfig.registerUrl),
-        headers: _headers(),
-        body: jsonEncode({
-          'name': name,
-          'email': email,
-          'password': password,
-          'license_number': licenseNumber,
-          'phone_number': phoneNumber,
-          'latitude': latitude,
-          'longitude': longitude,
-        }),
+      // 1. Phase 1 - Supabase Auth Registration
+      final authResponse = await supabase.auth.signUp(
+        email: email,
+        password: password,
+        data: {'name': name},
       );
 
-      final body = _decodeJsonBody(response.body);
-
-      if (response.statusCode < 200 || response.statusCode >= 300) {
+      final user = authResponse.user;
+      final session = authResponse.session;
+      if (user == null) {
         return _failure(
           code: 'REGISTER_FAILED',
-          message: _extractErrorMessage(body, response.statusCode),
+          message: 'User registration failed on auth provider.',
         );
       }
 
-      return _successFromBody(body);
+      // 2. Phase 2 - FastAPI Profile Synchronization
+      final String? token = session?.accessToken;
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      };
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      try {
+        final response = await dio.post(
+          '${ApiConfig.baseUrl}/api/pharmacies/sync-profile',
+          data: {
+            'business_name': name,
+            'license_number': licenseNumber,
+            'email': email,
+            'phone_number': phoneNumber,
+            'latitude': latitude,
+            'longitude': longitude,
+          },
+          options: Options(
+            headers: headers,
+            validateStatus: (status) => status != null && status < 500,
+          ),
+        );
+
+        if (response.statusCode != 201) {
+          // Sync failed - rollback auth session
+          await supabase.auth.signOut();
+          
+          final detail = response.data is Map && response.data.containsKey('detail')
+              ? response.data['detail']
+              : 'Profile synchronization failed with status code ${response.statusCode}.';
+              
+          return _failure(
+            code: 'SYNC_FAILED',
+            message: detail.toString(),
+          );
+        }
+
+        // Success - store local current user profile representation
+        final responseData = response.data as Map<String, dynamic>;
+        _currentUser = responseData;
+        
+        return {
+          'ok': true,
+          'data': responseData,
+          'message': 'Registration and profile sync completed successfully.',
+        };
+      } catch (e) {
+        // Network/parsing exception during sync - rollback auth session
+        await supabase.auth.signOut();
+        return _failure(
+          code: 'SYNC_FAILED',
+          message: 'Profile synchronization failed: ${e.toString()}',
+        );
+      }
     } catch (e) {
-      return _failure(code: 'REGISTER_FAILED', message: e.toString());
+      return _failure(
+        code: 'REGISTER_FAILED',
+        message: 'Auth registration failed: ${e.toString()}',
+      );
     }
   }
+
+  /// Authenticates a pharmacy owner via Supabase Auth
+  static Future<Map<String, dynamic>> loginPharmacy({
+    required String email,
+    required String password,
+  }) async {
+    final supabase = Supabase.instance.client;
+    try {
+      final authResponse = await supabase.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
+
+      final user = authResponse.user;
+      final session = authResponse.session;
+      if (user == null || session == null) {
+        return _failure(
+          code: 'LOGIN_FAILED',
+          message: 'Invalid email or password.',
+        );
+      }
+
+      // Store minimal local representation of user
+      _currentUser = {
+        'id': user.id,
+        'email': user.email,
+        'name': user.userMetadata?['name'] ?? '',
+      };
+
+      return {
+        'ok': true,
+        'data': {
+          'access_token': session.accessToken,
+          'user': _currentUser,
+        },
+        'message': 'Login successful.',
+      };
+    } catch (e) {
+      return _failure(
+        code: 'LOGIN_FAILED',
+        message: e.toString(),
+      );
+    }
+  }
+
+  /// Signs the current user out of Supabase Auth
+  static Future<Map<String, dynamic>> logout() async {
+    try {
+      await Supabase.instance.client.auth.signOut();
+      _currentUser = null;
+      return {'ok': true, 'message': 'Logged out successfully.'};
+    } catch (e) {
+      _currentUser = null;
+      return _failure(
+        code: 'LOGOUT_FAILED',
+        message: 'Logout failed: ${e.toString()}',
+      );
+    }
+  }
+
+  /// Returns the cached profile details of the logged-in pharmacy node
+  static Map<String, dynamic>? getMe() {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return null;
+    return _currentUser ?? {
+      'id': user.id,
+      'email': user.email,
+      'name': user.userMetadata?['name'] ?? '',
+    };
+  }
+
+  /// Checks if a session is currently active
+  static bool isLoggedIn() {
+    return Supabase.instance.client.auth.currentSession != null;
+  }
+
+  // --- Backwards Compatibility Wrappers ---
+  static Future<Map<String, dynamic>> register({
+    required String name,
+    required String email,
+    required String password,
+    required String licenseNumber,
+    required String phoneNumber,
+    required double latitude,
+    required double longitude,
+  }) => registerPharmacy(
+    name: name,
+    email: email,
+    password: password,
+    licenseNumber: licenseNumber,
+    phoneNumber: phoneNumber,
+    latitude: latitude,
+    longitude: longitude,
+  );
 
   static Future<Map<String, dynamic>> login({
     required String email,
     required String password,
-  }) async {
-    try {
-      final response = await http.post(
-        Uri.parse(ApiConfig.loginUrl),
-        headers: _headers(),
-        body: jsonEncode({
-          'email': email,
-          'password': password,
-        }),
-      );
-
-      final body = _decodeJsonBody(response.body);
-
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        return _failure(
-          code: 'INVALID_CREDENTIALS',
-          message: _extractErrorMessage(body, response.statusCode),
-        );
-      }
-
-      final result = _successFromBody(body);
-      if (result['ok'] == true) {
-        _cacheLoginState(result);
-      }
-
-      return result;
-    } catch (e) {
-      return _failure(code: 'LOGIN_FAILED', message: e.toString());
-    }
-  }
-
-  static Future<Map<String, dynamic>> logout() async {
-    try {
-      final response = await http.post(
-        Uri.parse(ApiConfig.logoutUrl),
-        headers: _headers(withAuth: true),
-      );
-
-      final body = _decodeJsonBody(response.body);
-      _accessToken = null;
-      _currentUser = null;
-
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        return _failure(
-          code: 'LOGOUT_FAILED',
-          message: _extractErrorMessage(body, response.statusCode),
-        );
-      }
-
-      return {'ok': true, 'message': 'Logged out'};
-    } catch (e) {
-      _accessToken = null;
-      _currentUser = null;
-      return _failure(code: 'LOGOUT_FAILED', message: e.toString());
-    }
-  }
-
-  static Map<String, dynamic>? getMe() {
-    return _currentUser;
-  }
-
-  static bool isLoggedIn() {
-    return _currentUser != null;
-  }
+  }) => loginPharmacy(
+    email: email,
+    password: password,
+  );
 }

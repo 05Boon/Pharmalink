@@ -1,6 +1,6 @@
-import 'package:dio/dio.dart';
 import '../core/network/auth_interceptor.dart';
 import '../models/stock_request_model.dart';
+import '../models/alert_notification_model.dart';
 
 class StockRequestService {
   final String baseUrl;
@@ -26,6 +26,28 @@ class StockRequestService {
       return StockRequest.fromJson(response.data as Map<String, dynamic>);
     } else {
       throw Exception('Failed to create stock request');
+    }
+  }
+
+  /// Fetches all active (PENDING) stock requests created by the authenticated pharmacy
+  Future<List<StockRequest>> fetchMyRequests() async {
+    final response = await dio.get('$baseUrl/broadcasts/active-requests');
+    if (response.statusCode == 200) {
+      final List<dynamic> data = response.data as List<dynamic>;
+      return data.map((item) => StockRequest.fromJson(item as Map<String, dynamic>)).toList();
+    } else {
+      throw Exception('Failed to load active requests');
+    }
+  }
+
+  /// Fetches unread alert notifications sent to the authenticated pharmacy
+  Future<List<AlertNotification>> fetchMyAlerts() async {
+    final response = await dio.get('$baseUrl/broadcasts/alerts/unread');
+    if (response.statusCode == 200) {
+      final List<dynamic> data = response.data as List<dynamic>;
+      return data.map((item) => AlertNotification.fromJson(item as Map<String, dynamic>)).toList();
+    } else {
+      throw Exception('Failed to load unread alerts');
     }
   }
 }

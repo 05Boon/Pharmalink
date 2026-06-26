@@ -1,4 +1,5 @@
 import 'alert_notification_model.dart';
+import 'pharmacy_basic_info.dart';
 
 class StockRequest {
   final String requestId;
@@ -9,6 +10,7 @@ class StockRequest {
   final String requestStatus;
   final DateTime createdAt;
   final List<AlertNotification> alerts;
+  final PharmacyBasicInfo? pharmacy;
 
   StockRequest({
     required this.requestId,
@@ -19,6 +21,7 @@ class StockRequest {
     required this.requestStatus,
     required this.createdAt,
     required this.alerts,
+    this.pharmacy,
   });
 
   factory StockRequest.fromJson(Map<String, dynamic> json) {
@@ -34,6 +37,9 @@ class StockRequest {
               ?.map((item) => AlertNotification.fromJson(item as Map<String, dynamic>))
               .toList() ??
           [],
+      pharmacy: json['pharmacy'] != null
+          ? PharmacyBasicInfo.fromJson(json['pharmacy'] as Map<String, dynamic>)
+          : null,
     );
   }
 
@@ -47,6 +53,7 @@ class StockRequest {
       'request_status': requestStatus,
       'created_at': createdAt.toIso8601String(),
       'alerts': alerts.map((item) => item.toJson()).toList(),
+      if (pharmacy != null) 'pharmacy': pharmacy!.toJson(),
     };
   }
 }

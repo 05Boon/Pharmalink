@@ -1,9 +1,12 @@
+import 'stock_request_model.dart';
+
 class AlertNotification {
   final String alertId;
   final String requestId;
   final String receivingPharmacyId;
   final String alertStatus;
   final DateTime deliveredAt;
+  final StockRequest? request;
 
   AlertNotification({
     required this.alertId,
@@ -11,6 +14,7 @@ class AlertNotification {
     required this.receivingPharmacyId,
     required this.alertStatus,
     required this.deliveredAt,
+    this.request,
   });
 
   factory AlertNotification.fromJson(Map<String, dynamic> json) {
@@ -20,6 +24,9 @@ class AlertNotification {
       receivingPharmacyId: json['receiving_pharmacy_id'] as String,
       alertStatus: json['alert_status'] as String,
       deliveredAt: DateTime.parse(json['delivered_at'] as String),
+      request: json['request'] != null
+          ? StockRequest.fromJson(json['request'] as Map<String, dynamic>)
+          : null,
     );
   }
 
@@ -30,6 +37,7 @@ class AlertNotification {
       'receiving_pharmacy_id': receivingPharmacyId,
       'alert_status': alertStatus,
       'delivered_at': deliveredAt.toIso8601String(),
+      if (request != null) 'request': request!.toJson(),
     };
   }
 }
