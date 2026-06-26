@@ -93,16 +93,24 @@ class _RegisterPageState extends State<RegisterPage> {
     }
 
     // All validations passed — send to Supabase
-    final result = await AuthService.register(
-      name: _pharmacyNameController.text.trim(),
-      email: _emailController.text.trim(),
-      password: _passwordController.text.trim(),
-      licenseNumber: _licenseNumberController.text.trim(),
-      phoneNumber: _phoneNumberController.text.trim(),
-      // Coordinates from the map tap
-      latitude: _pickedLocation!.latitude,
-      longitude: _pickedLocation!.longitude,
-    );
+    Map<String, dynamic> result;
+    try {
+      result = await AuthService.register(
+        name: _pharmacyNameController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+        licenseNumber: _licenseNumberController.text.trim(),
+        phoneNumber: _phoneNumberController.text.trim(),
+        // Coordinates from the map tap
+        latitude: _pickedLocation!.latitude,
+        longitude: _pickedLocation!.longitude,
+      );
+    } catch (_) {
+      result = {
+        'ok': false,
+        'error': {'message': 'Registration is currently unavailable'}
+      };
+    }
 
     if (!mounted) return;
 

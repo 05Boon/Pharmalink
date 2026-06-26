@@ -1,20 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'config/api_config.dart';
 import 'routes/app_router.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   await Supabase.initialize(
-    url: const String.fromEnvironment(
-      'SUPABASE_URL',
-      defaultValue: 'https://mock-supabase.supabase.co',
-    ),
-    publishableKey: const String.fromEnvironment(
-      'SUPABASE_ANON_KEY',
-      defaultValue: 'mock-anon-key',
-    ),
+    url: ApiConfig.supabaseUrl.isEmpty
+        ? 'https://mock-supabase.supabase.co'
+        : ApiConfig.supabaseUrl,
+    publishableKey:
+        ApiConfig.supabaseAnonKey.isEmpty ? 'mock-anon-key' : ApiConfig.supabaseAnonKey,
   );
 
   runApp(const PharmacyNetworkApp());

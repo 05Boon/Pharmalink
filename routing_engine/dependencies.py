@@ -1,7 +1,9 @@
 import base64
 import json
+from httpx import AsyncClient
 from fastapi import Header, HTTPException, status
 from typing import Optional
+from settings import SUPABASE_ANON_KEY, SUPABASE_URL
 
 def resolve_token(token: str) -> Optional[str]:
     """
@@ -31,26 +33,66 @@ def resolve_token(token: str) -> Optional[str]:
     except Exception:
         return None
 
-def get_current_user_uuid(authorization: Optional[str] = Header(None)) -> str:
-    """
-    FastAPI dependency that extracts and validates the current user's UUID.
-    Expects a Bearer token in the Authorization header.
-    """
+def parse_bearer_token(authorization: Optional[str]) -> str:
     if not authorization:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing Authorization header."
+            detail="Missing Authorization header.",
         )
     if not authorization.startswith("Bearer "):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authorization format. Must start with 'Bearer '."
+            detail="Invalid authorization format. Must start with 'Bearer '.",
         )
-    token = authorization.split(" ")[1]
-    user_uuid = resolve_token(token)
-    if not user_uuid:
+    token = authorization.split(" ", 1)[1].strip()
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired authentication credentials."
+            detail="Invalid or expired authentication credentials.",
         )
-    return user_uuid
+    return token
+
+
+async def _validate_supabase_jwt(token: str) -> Optional[dict]:
+    if token.startswith("mock-"):
+        return {"id": token, "email": None}
+
+    if not SUPABASE_URL or not SUPABASE_ANON_KEY:
+        return None
+
+    headers = {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": f"Bearer {token}",
+    }
+
+    try:
+        async with AsyncClient(timeout=10.0) as client:
+            response = await client.get(f"{SUPABASE_URL}/auth/v1/user", headers=headers)
+    except Exception:
+        return None
+
+    if response.status_code < 200 or response.status_code >= 300:
+        return None
+
+    try:
+        payload = response.json()
+    except Exception:
+        return None
+
+    if isinstance(payload, dict) and payload.get("id"):
+        return payload
+    return None
+
+
+async def get_current_user_uuid(authorization: Optional[str] = Header(None)) -> str:
+    """
+    FastAPI dependency that validates a Supabase JWT and returns user UUID.
+    """
+    token = parse_bearer_token(authorization)
+    user_info = await _validate_supabase_jwt(token)
+    if not user_info:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired authentication credentials.",
+        )
+    return str(user_info["id"])

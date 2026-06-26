@@ -6,6 +6,16 @@ class ApiConfig {
     defaultValue: 'http://localhost:8000',
   );
 
+  static const String supabaseUrl = String.fromEnvironment(
+    'SUPABASE_URL',
+    defaultValue: '',
+  );
+
+  static const String supabaseAnonKey = String.fromEnvironment(
+    'SUPABASE_ANON_KEY',
+    defaultValue: '',
+  );
+
   static String get healthUrl => '$baseUrl/health';
   static String get registerUrl => '$baseUrl/auth/register';
   static String get loginUrl => '$baseUrl/auth/login';

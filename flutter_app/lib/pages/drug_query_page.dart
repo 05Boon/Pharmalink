@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../widgets/app_nav.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/app_button.dart';
+import '../services/network_data_service.dart';
 
 class DrugQueryPage extends StatefulWidget {
   const DrugQueryPage({super.key});
@@ -14,11 +15,66 @@ class DrugQueryPage extends StatefulWidget {
 class _DrugQueryPageState extends State<DrugQueryPage> {
   int selectedRadius = 10;
   final _drugNameController = TextEditingController();
+  final _quantityController = TextEditingController();
+
+  bool _isSubmitting = false;
+  String? _errorMessage;
 
   @override
   void dispose() {
     _drugNameController.dispose();
+    _quantityController.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleSearchNow() async {
+    setState(() {
+      _errorMessage = null;
+    });
+
+    final drugName = _drugNameController.text.trim();
+    final quantity = int.tryParse(_quantityController.text.trim());
+
+    if (drugName.isEmpty) {
+      setState(() {
+        _errorMessage = 'Enter a drug name before searching.';
+      });
+      return;
+    }
+
+    if (quantity == null || quantity <= 0) {
+      setState(() {
+        _errorMessage = 'Enter a valid quantity greater than 0.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      await NetworkDataService.createStockRequestAndBroadcast(
+        requestedDrug: drugName,
+        requiredQuantity: quantity,
+        searchRadiusMeters: selectedRadius,
+      );
+
+      if (!mounted) return;
+      final encoded = Uri.encodeQueryComponent(drugName);
+      context.go('/search/results?q=$encoded');
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = 'Unable to submit your request now. Please try again.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
   }
 
   @override
@@ -81,9 +137,23 @@ class _DrugQueryPageState extends State<DrugQueryPage> {
                         placeholder: 'Drug name / generic name',
                         controller: _drugNameController,
                       ),
-                      const AppTextField(placeholder: 'Quantity needed'),
+                      AppTextField(
+                        placeholder: 'Quantity needed',
+                        keyboardType: TextInputType.number,
+                        controller: _quantityController,
+                      ),
                       const AppTextField(
                           placeholder: 'Dosage / form (optional)'),
+                      if (_errorMessage != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          _errorMessage!,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: Color(0xFF791F1F),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 8),
                       const Text(
                         'Search radius',
@@ -129,17 +199,8 @@ class _DrugQueryPageState extends State<DrugQueryPage> {
                       ),
                       const SizedBox(height: 4),
                       AppButton(
-                        text: 'Search now',
-                        onPressed: () {
-                          final q = _drugNameController.text.trim();
-                          if (q.isEmpty) {
-                            context.go('/search/results');
-                            return;
-                          }
-
-                          final encoded = Uri.encodeQueryComponent(q);
-                          context.go('/search/results?q=$encoded');
-                        },
+                        text: _isSubmitting ? 'Submitting...' : 'Search now',
+                        onPressed: _isSubmitting ? null : _handleSearchNow,
                       ),
                       const SizedBox(height: 6),
                       SizedBox(

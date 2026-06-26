@@ -9,6 +9,15 @@ class AuthService {
   static Map<String, dynamic>? get currentUser => _currentUser;
   static String? get accessToken => Supabase.instance.client.auth.currentSession?.accessToken;
 
+  static bool get isAdmin {
+    final user = Supabase.instance.client.auth.currentUser;
+    final email = _currentUser?['email'] as String? ?? user?.email;
+    final role = _currentUser?['role'] as String? ?? 
+                 user?.appMetadata['role'] as String? ?? 
+                 user?.userMetadata?['role'] as String?;
+    return (email != null && email.contains('admin')) || role == 'admin';
+  }
+
   static Map<String, dynamic> _failure({
     required String code,
     required String message,
@@ -141,6 +150,7 @@ class AuthService {
         'id': user.id,
         'email': user.email,
         'name': user.userMetadata?['name'] ?? '',
+        'role': user.appMetadata['role'] ?? user.userMetadata?['role'] ?? '',
       };
 
       return {

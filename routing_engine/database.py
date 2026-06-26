@@ -1,13 +1,6 @@
-import os
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
-
-# 1. Look for the database URL environment variable
-# If it can't find it locally, default to our Docker string
-DATABASE_URL = os.getenv(
-    "DATABASE_URL", 
-    "postgresql+asyncpg://admin:local_secret_password@localhost:5432/pharmacy_network_db"
-)
+from settings import DATABASE_URL
 
 # 2. Create the Async Engine (The physical engine that manages database queries)
 engine = create_async_engine(

@@ -17,7 +17,6 @@ class _LoginPageState extends State<LoginPage> {
   final _passwordController = TextEditingController();
 
   bool _isLoading = false;
-
   String? _errorMessage;
 
   @override
@@ -58,7 +57,7 @@ class _LoginPageState extends State<LoginPage> {
           _isLoading = false;
         });
       }
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
         _errorMessage = 'An error occurred. Please try again.';
@@ -118,7 +117,6 @@ class _LoginPageState extends State<LoginPage> {
                         obscureText: true,
                         controller: _passwordController,
                       ),
-
                       if (_errorMessage != null) ...[
                         const SizedBox(height: 6),
                         Text(
@@ -129,53 +127,10 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         ),
                       ],
-
-                      const SizedBox(height: 4),
-                      AppButton(
-                        text: _isLoading ? 'Signing in...' : ' Login',
-                        onPressed: () {
-                          if (_isLoading) return;
-                          _handleLogin();
-                        },
-                      ),
-
-                      const SizedBox(height: 10),
-                      Center(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text(
-                              'Admin? ',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Color(0xFF5F5E5A),
-                              ),
-                            ),
-                            GestureDetector(
-                              onTap: () => context.go('/admin'),
-                              child: const Text(
-                                'Admin login →',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Color(0xFF0F6E56),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                       const SizedBox(height: 8),
-                      Center(
-                        child: GestureDetector(
-                          onTap: () {},
-                          child: const Text(
-                            'Forgot password?',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Color(0xFF0F6E56),
-                            ),
-                          ),
-                        ),
+                      AppButton(
+                        text: _isLoading ? 'Signing in...' : 'Login',
+                        onPressed: _isLoading ? null : _handleLogin,
                       ),
                     ],
                   ),

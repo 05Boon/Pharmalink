@@ -4,13 +4,54 @@ import '../widgets/app_nav.dart';
 import '../widgets/app_button.dart';
 import '../services/network_data_service.dart';
 
-class ApproveOnboardingPage extends StatelessWidget {
+class ApproveOnboardingPage extends StatefulWidget {
   final String pharmacyId;
 
   const ApproveOnboardingPage({
     super.key,
     required this.pharmacyId,
   });
+
+  @override
+  State<ApproveOnboardingPage> createState() => _ApproveOnboardingPageState();
+}
+
+class _ApproveOnboardingPageState extends State<ApproveOnboardingPage> {
+  bool _submitting = false;
+
+  Future<void> _submitDecision(bool approved) async {
+    setState(() {
+      _submitting = true;
+    });
+
+    try {
+      await NetworkDataService.reviewOnboardingPharmacy(
+        pharmacyId: widget.pharmacyId,
+        approved: approved,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(approved
+              ? 'Pharmacy approved successfully.'
+              : 'Pharmacy rejected successfully.'),
+        ),
+      );
+      context.go('/admin/pharmacies');
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not submit decision. Try again.')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +65,7 @@ class ApproveOnboardingPage extends StatelessWidget {
           ]),
           Expanded(
             child: FutureBuilder<Map<String, dynamic>>(
-              future: NetworkDataService.getOnboardingDetail(pharmacyId),
+              future: NetworkDataService.getOnboardingDetail(widget.pharmacyId),
               builder: (context, snapshot) {
                 final detail = snapshot.data ?? const <String, dynamic>{};
                 return Padding(
@@ -110,16 +151,18 @@ class ApproveOnboardingPage extends StatelessWidget {
                             children: [
                               Expanded(
                                 child: AppButton(
-                                  text: 'Approve',
-                                  onPressed: () =>
-                                      context.go('/admin/pharmacies'),
+                                  text: _submitting ? 'Saving...' : 'Approve',
+                                  onPressed: _submitting
+                                      ? null
+                                      : () => _submitDecision(true),
                                 ),
                               ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: OutlinedButton(
-                                  onPressed: () =>
-                                      context.go('/admin/pharmacies'),
+                                  onPressed: _submitting
+                                      ? null
+                                      : () => _submitDecision(false),
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: const Color(0xFF791F1F),
                                     side: const BorderSide(
