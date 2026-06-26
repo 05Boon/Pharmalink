@@ -1,4 +1,6 @@
 import 'package:go_router/go_router.dart';
+import '../services/auth_service.dart';
+import '../features/admin/presentation/admin_dashboard_screen.dart';
 import '../pages/login_page.dart';
 import '../pages/register_page.dart';
 import '../pages/owner_dashboard_page.dart';
@@ -8,7 +10,6 @@ import '../pages/receive_alert_page.dart';
 import '../pages/accept_share_page.dart';
 import '../pages/view_response_page.dart';
 import '../pages/transaction_history_page.dart';
-import '../pages/admin_dashboard_page.dart';
 import '../pages/manage_pharmacies_page.dart';
 import '../pages/approve_onboarding_page.dart';
 import '../pages/monitor_transactions_page.dart';
@@ -17,6 +18,20 @@ import '../pages/audit_logs_page.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/register',
+  redirect: (context, state) {
+    final isLoggedIn = AuthService.isLoggedIn();
+    final isGoingToAdmin = state.uri.path.startsWith('/admin');
+
+    if (isGoingToAdmin) {
+      if (!isLoggedIn) {
+        return '/login';
+      }
+      if (!AuthService.isAdmin) {
+        return '/dashboard';
+      }
+    }
+    return null;
+  },
   routes: [
     GoRoute(
       path: '/',
@@ -62,7 +77,7 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/admin',
-      builder: (context, state) => const AdminDashboardPage(),
+      builder: (context, state) => const AdminDashboardScreen(),
     ),
     GoRoute(
       path: '/admin/pharmacies',

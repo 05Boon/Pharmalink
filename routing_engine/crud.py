@@ -257,4 +257,54 @@ async def get_unread_alerts(db: AsyncSession, pharmacy_id: str) -> List[AlertNot
     return list(result.scalars().all())
 
 
+async def update_pharmacy_status(db: AsyncSession, pharmacy_id: str, account_status: str) -> Optional[PharmacyNode]:
+    """
+    Updates the account status of a pharmacy node.
+    """
+    db_node = await get_pharmacy_node(db, pharmacy_id)
+    if db_node:
+        db_node.account_status = account_status
+        db.add(db_node)
+        await db.commit()
+        await db.refresh(db_node)
+    return db_node
+
+
+async def get_outbreaks_analytics(db: AsyncSession, days: int) -> List[dict]:
+    """
+    Aggregates stock requests created within the last `days` days.
+    Groups by requested_drug, calculates request frequency, and uses PostGIS functions
+    ST_Collect and ST_Centroid to determine the geographical center of requests.
+    """
+    import datetime
+    start_time = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) - datetime.timedelta(days=days)
+    
+    stmt = (
+        select(
+            StockRequest.requested_drug,
+            func.count(StockRequest.request_id).label("request_frequency"),
+            func.ST_X(func.ST_Centroid(func.ST_Collect(PharmacyNode.location))).label("centroid_longitude"),
+            func.ST_Y(func.ST_Centroid(func.ST_Collect(PharmacyNode.location))).label("centroid_latitude")
+        )
+        .join(PharmacyNode, StockRequest.pharmacy_id == PharmacyNode.pharmacy_id)
+        .where(StockRequest.created_at >= start_time)
+        .group_by(StockRequest.requested_drug)
+    )
+    
+    result = await db.execute(stmt)
+    rows = result.all()
+    
+    return [
+        {
+            "requested_drug": row.requested_drug,
+            "request_frequency": row.request_frequency,
+            "centroid_longitude": row.centroid_longitude if row.centroid_longitude is not None else 0.0,
+            "centroid_latitude": row.centroid_latitude if row.centroid_latitude is not None else 0.0
+        }
+        for row in rows
+    ]
+
+
+
+
 
