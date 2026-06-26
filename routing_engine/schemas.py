@@ -122,4 +122,14 @@ class PharmacyStatusUpdate(BaseModel):
     account_status: str = Field(..., description="Target status, e.g., ACTIVE, SUSPENDED")
 
 
+class OutbreakAnalytic(BaseModel):
+    requested_drug: str
+    request_frequency: int
+    centroid_latitude: float
+    centroid_longitude: float
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+
 

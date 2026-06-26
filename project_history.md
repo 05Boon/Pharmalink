@@ -144,6 +144,17 @@ The backend is built as a REST and Real-Time WebSocket service managing pharmacy
 * **Modifications in [main.py](routing_engine/main.py):**
   * Registered and mapped the new `admin_router` in the application instance.
 
+### Milestone M: Geospatial Outbreak Detection Analytics
+* **Objective:** Build a geospatial analytics engine to aggregate stock requests, allowing system administrators to detect potential medical outbreaks based on recent request spikes and geographic centroids.
+* **Modifications in [schemas.py](routing_engine/schemas.py):**
+  * Added `OutbreakAnalytic` response schema containing requested drug name, request frequency, and the calculated average latitude and longitude coordinates.
+* **Modifications in [crud.py](routing_engine/crud.py):**
+  * Implemented `get_outbreaks_analytics` query using PostGIS `ST_Collect` and `ST_Centroid` on the `PharmacyNode.location` column grouped by `StockRequest.requested_drug` over a parameterized timeframe.
+* **Modifications in [admin.py](routing_engine/routers/admin.py):**
+  * Mounted `GET /api/admin/analytics/outbreaks` in `admin_router` utilizing `get_current_admin` security dependency.
+* **Modifications in [test_admin_analytics.py](routing_engine/tests/test_admin_analytics.py):**
+  * Created integration test suite verifying timeframe filtering (e.g. 7 days vs 12 days), grouping, average centroid coordinate output, and role-based permissions (403 and 401 rejections).
+
 ---
 
 ## 3. Active Verification Setup
@@ -173,6 +184,12 @@ To run the admin authentication and status toggle test suite:
 ```bash
 PYTHONPATH=routing_engine routing_engine/venv/bin/pytest routing_engine/tests/test_admin_auth.py -v
 ```
+
+To run the admin outbreak detection analytics test suite:
+```bash
+PYTHONPATH=routing_engine routing_engine/venv/bin/pytest routing_engine/tests/test_admin_analytics.py -v
+```
+
 
 ### Backend Container Stack Verification
 To build, start, and run the entire backend container stack:

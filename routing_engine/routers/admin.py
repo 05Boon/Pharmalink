@@ -55,3 +55,26 @@ async def patch_pharmacy_status(
         account_status=updated_node.account_status,
         created_at=updated_node.created_at
     )
+
+
+@admin_router.get(
+    "/analytics/outbreaks",
+    response_model=list[schemas.OutbreakAnalytic],
+    summary="Retrieve geospatial outbreak detection analytics based on recent stock requests"
+)
+async def get_outbreaks(
+    days: int = 7,
+    admin=Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Retrieves geospatial outbreak detection analytics (grouped by drug, average coordinates as centroids, and request frequency).
+    Only accessible by administrators.
+    """
+    if days <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Days parameter must be a positive integer."
+        )
+    return await crud.get_outbreaks_analytics(db, days)
+
