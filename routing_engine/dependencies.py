@@ -1,7 +1,12 @@
 import base64
 import json
-from fastapi import Header, HTTPException, status
+from fastapi import Header, HTTPException, status, Depends
 from typing import Optional
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+
+from database import get_db
+from models import SystemAdmin
 
 def resolve_token(token: str) -> Optional[str]:
     """
@@ -54,3 +59,23 @@ def get_current_user_uuid(authorization: Optional[str] = Header(None)) -> str:
             detail="Invalid or expired authentication credentials."
         )
     return user_uuid
+
+
+async def get_current_admin(
+    admin_uuid: str = Depends(get_current_user_uuid),
+    db: AsyncSession = Depends(get_db)
+) -> SystemAdmin:
+    """
+    FastAPI dependency that extracts the authenticated user UUID and verifies
+    that they exist in the SystemAdmin registry database table.
+    """
+    stmt = select(SystemAdmin).where(SystemAdmin.admin_id == admin_uuid)
+    result = await db.execute(stmt)
+    admin = result.scalar_one_or_none()
+    
+    if not admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden. Admin privilege required."
+        )
+    return admin

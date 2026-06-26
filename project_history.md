@@ -130,6 +130,20 @@ The backend is built as a REST and Real-Time WebSocket service managing pharmacy
   * Added container startup command `sh -c "python create_tables.py && uvicorn main:app ..."` to automatically initialize the PostGIS database tables before booting the server.
   * Defined a custom bridge network `pharmalink-network` for secure, isolated communication between containers.
 
+### Milestone L: Admin Role-Based Access Control & Node Management
+* **Objective:** Establish strict role-based access control (RBAC) for system administrators and enable administrators to manage pharmacy node lifecycle status.
+* **Modifications in [dependencies.py](routing_engine/dependencies.py):**
+  * Implemented `get_current_admin` dependency that extracts the authenticated user UUID from Supabase JWT and asserts its existence in the `SystemAdmin` database table.
+* **Modifications in [schemas.py](routing_engine/schemas.py):**
+  * Added `PharmacyStatusUpdate` Pydantic validation schema.
+* **Modifications in [crud.py](routing_engine/crud.py):**
+  * Implemented `update_pharmacy_status` to toggle node account status in database.
+* **Modifications in [admin.py](routing_engine/routers/admin.py):**
+  * Created a dedicated APIRouter mounting `PATCH /api/admin/pharmacies/{pharmacy_id}/status`.
+  * Utilizes `func.ST_X` and `func.ST_Y` to eagerly parse and return longitude/latitude in a validated `PharmacyNodeResponse` after status modification.
+* **Modifications in [main.py](routing_engine/main.py):**
+  * Registered and mapped the new `admin_router` in the application instance.
+
 ---
 
 ## 3. Active Verification Setup
@@ -153,6 +167,11 @@ PYTHONPATH=routing_engine routing_engine/venv/bin/pytest routing_engine/tests/te
 To run the dashboard retrieval test suite:
 ```bash
 PYTHONPATH=routing_engine routing_engine/venv/bin/pytest routing_engine/tests/test_retrieval.py -v
+```
+
+To run the admin authentication and status toggle test suite:
+```bash
+PYTHONPATH=routing_engine routing_engine/venv/bin/pytest routing_engine/tests/test_admin_auth.py -v
 ```
 
 ### Backend Container Stack Verification

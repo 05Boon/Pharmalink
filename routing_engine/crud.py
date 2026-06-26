@@ -257,4 +257,18 @@ async def get_unread_alerts(db: AsyncSession, pharmacy_id: str) -> List[AlertNot
     return list(result.scalars().all())
 
 
+async def update_pharmacy_status(db: AsyncSession, pharmacy_id: str, account_status: str) -> Optional[PharmacyNode]:
+    """
+    Updates the account status of a pharmacy node.
+    """
+    db_node = await get_pharmacy_node(db, pharmacy_id)
+    if db_node:
+        db_node.account_status = account_status
+        db.add(db_node)
+        await db.commit()
+        await db.refresh(db_node)
+    return db_node
+
+
+
 

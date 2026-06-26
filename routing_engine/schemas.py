@@ -118,3 +118,8 @@ class AlertNotificationDetailResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PharmacyStatusUpdate(BaseModel):
+    account_status: str = Field(..., description="Target status, e.g., ACTIVE, SUSPENDED")
+
+
+
