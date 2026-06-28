@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:go_router/go_router.dart';
 import '../widgets/app_nav.dart';
 import '../services/network_data_service.dart';
+import '../services/realtime_alert_service.dart';
 
 class ReceiveAlertPage extends StatefulWidget {
   const ReceiveAlertPage({super.key});
@@ -13,11 +15,85 @@ class ReceiveAlertPage extends StatefulWidget {
 class _ReceiveAlertPageState extends State<ReceiveAlertPage> {
   late Future<List<Map<String, dynamic>>> _requestsFuture;
   String? _inFlightRequestId;
+  final List<Map<String, dynamic>> _liveRequests = <Map<String, dynamic>>[];
+  StreamSubscription<Map<String, dynamic>>? _alertsSubscription;
 
   @override
   void initState() {
     super.initState();
     _requestsFuture = NetworkDataService.getIncomingRequests();
+    _startRealtimeAlerts();
+  }
+
+  @override
+  void dispose() {
+    _alertsSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _startRealtimeAlerts() async {
+    _alertsSubscription =
+        RealtimeAlertService.instance.alertsStream.listen((alert) {
+      final normalized = _normalizeAlertForInbox(alert);
+      if (!mounted) return;
+
+      setState(() {
+        _liveRequests.insert(0, normalized);
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('New incoming request received.')),
+      );
+    });
+
+    await RealtimeAlertService.instance.connect();
+  }
+
+  Map<String, dynamic> _normalizeAlertForInbox(Map<String, dynamic> alert) {
+    final requestId = '${alert['request_id'] ?? ''}';
+    final alertId = '${alert['alert_id'] ?? ''}';
+
+    return <String, dynamic>{
+      ...alert,
+      'request_id': requestId,
+      'alert_id': alertId,
+      'from': alert['requesting_pharmacy_name'] ?? alert['from'] ?? '-',
+      'drug': alert['requested_drug'] ?? alert['drug'] ?? '-',
+      'qty': alert['required_quantity'] ?? alert['qty'] ?? 0,
+      'time': alert['created_at'] ?? alert['time'] ?? '-',
+      'status': alert['status'] ?? 'PENDING',
+    };
+  }
+
+  List<Map<String, dynamic>> _mergeRequests(
+    List<Map<String, dynamic>> initialRequests,
+  ) {
+    final merged = <Map<String, dynamic>>[];
+    final seenKeys = <String>{};
+
+    final all = <Map<String, dynamic>>[
+      ..._liveRequests,
+      ...initialRequests,
+    ];
+
+    for (final item in all) {
+      final requestKey = '${item['request_id'] ?? ''}';
+      final alertKey = '${item['alert_id'] ?? ''}';
+      final fallbackKey = '${item['id'] ?? item.hashCode}';
+      final dedupeKey =
+          requestKey.isNotEmpty ? 'request:$requestKey' : alertKey.isNotEmpty
+              ? 'alert:$alertKey'
+              : 'fallback:$fallbackKey';
+
+      if (seenKeys.contains(dedupeKey)) {
+        continue;
+      }
+
+      seenKeys.add(dedupeKey);
+      merged.add(item);
+    }
+
+    return merged;
   }
 
   Future<void> _handleDecision(
@@ -87,8 +163,9 @@ class _ReceiveAlertPageState extends State<ReceiveAlertPage> {
             child: FutureBuilder<List<Map<String, dynamic>>>(
               future: _requestsFuture,
               builder: (context, snapshot) {
-                final requests =
-                    snapshot.data ?? const <Map<String, dynamic>>[];
+                final requests = _mergeRequests(
+                  snapshot.data ?? const <Map<String, dynamic>>[],
+                );
                 return SingleChildScrollView(
                   padding: const EdgeInsets.all(14),
                   child: Container(

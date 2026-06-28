@@ -21,6 +21,7 @@ dependencies:
   # API
   http: ^1.2.2
   dio: ^5.5.0
+  web_socket_channel: ^3.0.1
 
   # UI
   cupertino_icons: ^1.0.6

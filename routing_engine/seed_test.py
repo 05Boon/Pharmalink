@@ -11,7 +11,7 @@ async def test_database_insert():
             # 1. Create a dummy pharmacy in Nyali (Mombasa)
             # Longitude comes first in PostGIS POINT(lon lat)
             nyali_pharmacy = PharmacyNode(
-                pharmacy_id="test-pharmacy-uuid-1234", 
+                pharmacy_id="test-pharmacy-uuid-2234", 
                 business_name="Nyali Central Pharmacy",
                 license_number="PPB-TEST-001",
                 email="admin@nyalicentral.com",

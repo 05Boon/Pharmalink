@@ -4,6 +4,7 @@ import '../widgets/app_nav.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/app_button.dart';
 import '../services/auth_service.dart';
+import '../services/realtime_alert_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -50,6 +51,7 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) return;
 
       if (result['ok'] == true) {
+        await RealtimeAlertService.instance.connect();
         context.go('/dashboard');
       } else {
         setState(() {

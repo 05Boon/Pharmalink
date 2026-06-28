@@ -85,7 +85,7 @@ async def websocket_endpoint(
     websocket: WebSocket,
     token: str = Query(..., description="JWT token or mock pharmacy UUID")
 ):
-    pharmacy_id = resolve_token(token)
+    pharmacy_id = await resolve_token(token)
     if not pharmacy_id:
         logger.warning("Rejected WebSocket connection: Invalid token.")
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)

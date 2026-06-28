@@ -16,7 +16,6 @@ class RegisterPage extends StatefulWidget {
 
 class _RegisterPageState extends State<RegisterPage> {
   // Text field controllers
-  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _pharmacyNameController = TextEditingController();
@@ -42,7 +41,6 @@ class _RegisterPageState extends State<RegisterPage> {
 
   @override
   void dispose() {
-    _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _pharmacyNameController.dispose();
@@ -60,8 +58,7 @@ class _RegisterPageState extends State<RegisterPage> {
     });
 
     // Check all text fields are filled
-    if (_nameController.text.trim().isEmpty ||
-        _emailController.text.trim().isEmpty ||
+    if (_emailController.text.trim().isEmpty ||
         _passwordController.text.trim().isEmpty ||
         _pharmacyNameController.text.trim().isEmpty ||
         _licenseNumberController.text.trim().isEmpty ||
@@ -169,12 +166,6 @@ class _RegisterPageState extends State<RegisterPage> {
                       ),
                       const SizedBox(height: 10),
 
-                      // Full name field
-                      AppTextField(
-                        placeholder: 'Full name',
-                        controller: _nameController,
-                      ),
-
                       // Email field
                       AppTextField(
                         placeholder: 'Email address',
@@ -232,7 +223,6 @@ class _RegisterPageState extends State<RegisterPage> {
                       const SizedBox(height: 6),
 
                       // The map widget
-                      // ClipRRect gives it rounded corners
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8),
                         child: SizedBox(
@@ -240,42 +230,26 @@ class _RegisterPageState extends State<RegisterPage> {
                           child: FlutterMap(
                             mapController: _mapController,
                             options: MapOptions(
-                              // Map starts centered on Nairobi
                               initialCenter: _nairobiCenter,
                               initialZoom: 13,
-
-                              // Fires every time the user taps the map
-                              // tapPosition is the pixel position
-                              // point is the LatLng coordinate
                               onTap: (tapPosition, point) {
                                 setState(() {
-                                  // Store the tapped coordinate
                                   _pickedLocation = point;
                                 });
                               },
                             ),
                             children: [
-                              // OpenStreetMap tile layer
-                              // Free, no API key needed
-                              // {z}/{x}/{y} are filled by flutter_map
-                              // based on zoom level and position
                               TileLayer(
                                 urlTemplate:
                                     'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                // Required by OpenStreetMap terms of use
                                 userAgentPackageName:
                                     'com.example.pharmacy_network',
                               ),
-
-                              // Pin marker layer
-                              // Only shows when user has tapped the map
                               if (_pickedLocation != null)
                                 MarkerLayer(
                                   markers: [
                                     Marker(
-                                      // Position the marker at the tapped point
                                       point: _pickedLocation!,
-                                      // width and height of the marker widget
                                       width: 40,
                                       height: 40,
                                       child: const Icon(
@@ -293,8 +267,6 @@ class _RegisterPageState extends State<RegisterPage> {
 
                       const SizedBox(height: 6),
 
-                      // Shows picked coordinates below the map
-                      // so user can confirm the right spot was selected
                       if (_pickedLocation != null)
                         Row(
                           children: [
@@ -316,7 +288,6 @@ class _RegisterPageState extends State<RegisterPage> {
                           ],
                         ),
 
-                      // Error message — only shown when not null
                       if (_errorMessage != null) ...[
                         const SizedBox(height: 6),
                         Text(
@@ -330,8 +301,6 @@ class _RegisterPageState extends State<RegisterPage> {
 
                       const SizedBox(height: 8),
 
-                      // Register button
-                      // Disabled while loading
                       AppButton(
                         text: _isLoading ? 'Registering...' : 'Register',
                         onPressed: () {

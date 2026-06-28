@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/api_config.dart';
-import '../core/network/auth_interceptor.dart';
+import 'app_dio.dart';
 
 class AuthService {
   static Map<String, dynamic>? _currentUser;
@@ -32,7 +32,7 @@ class AuthService {
   /// followed by Phase 2 (FastAPI profile sync).
   /// If Phase 2 fails, it rolls back Phase 1 by logging the user out.
   static Future<Map<String, dynamic>> registerPharmacy({
-    required String name,
+    required String businessName,
     required String email,
     required String password,
     required String licenseNumber,
@@ -46,7 +46,7 @@ class AuthService {
       final authResponse = await supabase.auth.signUp(
         email: email,
         password: password,
-        data: {'name': name},
+        data: {'business_name': businessName},
       );
 
       final user = authResponse.user;
@@ -58,21 +58,47 @@ class AuthService {
         );
       }
 
+      // Some Supabase projects require email confirmation and return no session
+      // on sign-up. Try a sign-in once; if still unavailable, stop before profile sync.
+      String? token = session?.accessToken ??
+          supabase.auth.currentSession?.accessToken;
+      if (token == null || token.isEmpty) {
+        try {
+          final signInResult = await supabase.auth.signInWithPassword(
+            email: email,
+            password: password,
+          );
+          token = signInResult.session?.accessToken ??
+              supabase.auth.currentSession?.accessToken;
+        } catch (_) {
+          return _failure(
+            code: 'EMAIL_CONFIRMATION_REQUIRED',
+            message:
+                'Account created. Please confirm your email, then login to complete profile setup.',
+          );
+        }
+      }
+
+      if (token == null || token.isEmpty) {
+        return _failure(
+          code: 'EMAIL_CONFIRMATION_REQUIRED',
+          message:
+              'Account created. Please confirm your email, then login to complete profile setup.',
+        );
+      }
+
       // 2. Phase 2 - FastAPI Profile Synchronization
-      final String? token = session?.accessToken;
       final headers = <String, String>{
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       };
-      if (token != null) {
-        headers['Authorization'] = 'Bearer $token';
-      }
+      headers['Authorization'] = 'Bearer $token';
 
       try {
-        final response = await dio.post(
+        final response = await AppDio.instance.post(
           '${ApiConfig.baseUrl}/api/pharmacies/sync-profile',
           data: {
-            'business_name': name,
+            'business_name': businessName,
             'license_number': licenseNumber,
             'email': email,
             'phone_number': phoneNumber,
@@ -210,7 +236,7 @@ class AuthService {
     required double latitude,
     required double longitude,
   }) => registerPharmacy(
-    name: name,
+    businessName: name,
     email: email,
     password: password,
     licenseNumber: licenseNumber,

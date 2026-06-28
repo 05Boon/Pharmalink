@@ -3,6 +3,7 @@ import '../services/auth_service.dart';
 import '../features/admin/presentation/admin_dashboard_screen.dart';
 import '../pages/login_page.dart';
 import '../pages/register_page.dart';
+import '../pages/bulk_register_page.dart';
 import '../pages/owner_dashboard_page.dart';
 import '../pages/drug_query_page.dart';
 import '../pages/search_results_page.dart';
@@ -40,6 +41,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/register',
       builder: (context, state) => const RegisterPage(),
+    ),
+    GoRoute(
+      path: '/debug/bulk-register',
+      builder: (context, state) => const BulkRegisterPage(),
     ),
     GoRoute(
       path: '/login',

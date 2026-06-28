@@ -5,14 +5,18 @@ import 'config/api_config.dart';
 import 'routes/app_router.dart';
 
 void main() async {
+  // Required before any async work before runApp()
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Initialize Supabase — must complete before app starts
+  // anonKey is the public key safe to use in client apps
   await Supabase.initialize(
     url: ApiConfig.supabaseUrl.isEmpty
-        ? 'https://mock-supabase.supabase.co'
+        ? 'https://fjnbnbtjsuxumtmhcidh.supabase.co'
         : ApiConfig.supabaseUrl,
-    publishableKey:
-        ApiConfig.supabaseAnonKey.isEmpty ? 'mock-anon-key' : ApiConfig.supabaseAnonKey,
+    anonKey: ApiConfig.supabaseAnonKey.isEmpty
+        ? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqbmJuYnRqc3V4dW10bWhjaWRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MjgzNTMsImV4cCI6MjA5NzIwNDM1M30.Ggqrad3PqQ_szto9zgT_alJveag97IgOh_LRB5czC3c'
+        : ApiConfig.supabaseAnonKey,
   );
 
   runApp(const PharmacyNetworkApp());

@@ -1,41 +1,25 @@
-import base64
-import json
 from fastapi import Header, HTTPException, status, Depends
 from typing import Optional
-from settings import SUPABASE_ANON_KEY, SUPABASE_URL
+from httpx import AsyncClient
+from settings import ALLOW_MOCK_AUTH, SUPABASE_ANON_KEY, SUPABASE_URL
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from database import get_db
 from models import SystemAdmin
 
-def resolve_token(token: str) -> Optional[str]:
+async def resolve_token(token: str) -> Optional[str]:
     """
-    Resolves the provided token and returns the pharmacy/user UUID string.
-    Supports a 'mock-' prefixed UUID for local dev/testing, or manual decoding
-    of the JWT payload fallback without verifying live signatures.
+    Resolves a token into a user UUID strictly via Supabase validation.
+    Mock tokens are accepted only when ALLOW_MOCK_AUTH is enabled.
     """
     if not token:
         return None
-    
-    # 1. Dev/Testing local override: If it starts with "mock-", return it directly
-    if token.startswith("mock-"):
-        return token
-        
-    # 2. Production/Supabase JWT fallback (manual base64 decode of 'sub' claim)
-    try:
-        parts = token.split(".")
-        if len(parts) != 3:
-            return None
-        payload_b64 = parts[1]
-        # Pad base64 string
-        payload_b64 += "=" * ((4 - len(payload_b64) % 4) % 4)
-        payload_json = base64.b64decode(payload_b64).decode("utf-8")
-        payload = json.loads(payload_json)
-        # Supabase stores authenticated user ID in the 'sub' claim
-        return payload.get("sub")
-    except Exception:
+
+    user_info = await _validate_supabase_jwt(token)
+    if not user_info or not user_info.get("id"):
         return None
+    return str(user_info["id"])
 
 def parse_bearer_token(authorization: Optional[str]) -> str:
     if not authorization:
@@ -44,9 +28,9 @@ def parse_bearer_token(authorization: Optional[str]) -> str:
             detail="Missing Authorization header.",
         )
     if not authorization.startswith("Bearer "):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authorization format. Must start with 'Bearer '.",
+         raise HTTPException(
+             status_code=status.HTTP_401_UNAUTHORIZED,
+             detail="Invalid authorization format. Must start with 'Bearer '.",
         )
     token = authorization.split(" ", 1)[1].strip()
     if not token:
@@ -58,10 +42,14 @@ def parse_bearer_token(authorization: Optional[str]) -> str:
 
 
 async def _validate_supabase_jwt(token: str) -> Optional[dict]:
-    if token.startswith("mock-"):
+    if token.startswith("mock-") and ALLOW_MOCK_AUTH:
         return {"id": token, "email": None}
 
+    if token.startswith("mock-") and not ALLOW_MOCK_AUTH:
+        return None
+
     if not SUPABASE_URL or not SUPABASE_ANON_KEY:
+        print(f"[AUTH DEBUG] Missing config — SUPABASE_URL={SUPABASE_URL!r} ANON_KEY_SET={bool(SUPABASE_ANON_KEY)}")
         return None
 
     headers = {
@@ -69,22 +57,29 @@ async def _validate_supabase_jwt(token: str) -> Optional[dict]:
         "Authorization": f"Bearer {token}",
     }
 
+    print(f"[AUTH DEBUG] Validating against {SUPABASE_URL}/auth/v1/user — token prefix: {token[:15]}...")
+
     try:
         async with AsyncClient(timeout=10.0) as client:
             response = await client.get(f"{SUPABASE_URL}/auth/v1/user", headers=headers)
-    except Exception:
+    except Exception as e:
+        print(f"[AUTH DEBUG] Request exception: {type(e).__name__}: {e}")
         return None
 
     if response.status_code < 200 or response.status_code >= 300:
+        print(f"[AUTH DEBUG] Supabase returned {response.status_code}: {response.text[:300]}")
         return None
 
     try:
         payload = response.json()
-    except Exception:
+    except Exception as e:
+        print(f"[AUTH DEBUG] Failed to parse JSON response: {e}")
         return None
 
     if isinstance(payload, dict) and payload.get("id"):
+        print(f"[AUTH DEBUG] Validated successfully, user id: {payload.get('id')}")
         return payload
+    print(f"[AUTH DEBUG] Payload missing id field: {payload}")
     return None
 
 
@@ -93,8 +88,8 @@ async def get_current_user_uuid(authorization: Optional[str] = Header(None)) -> 
     FastAPI dependency that validates a Supabase JWT and returns user UUID.
     """
     token = parse_bearer_token(authorization)
-    user_info = await _validate_supabase_jwt(token)
-    if not user_info:
+    user_uuid = await resolve_token(token)
+    if not user_uuid:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired authentication credentials.",
