@@ -52,6 +52,7 @@ class _LoginPageState extends State<LoginPage> {
 
       if (result['ok'] == true) {
         await RealtimeAlertService.instance.connect();
+        if (!mounted) return;
         context.go('/dashboard');
       } else {
         setState(() {

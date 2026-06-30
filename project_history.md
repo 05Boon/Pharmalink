@@ -155,6 +155,50 @@ The backend is built as a REST and Real-Time WebSocket service managing pharmacy
 * **Modifications in [test_admin_analytics.py](routing_engine/tests/test_admin_analytics.py):**
   * Created integration test suite verifying timeframe filtering (e.g. 7 days vs 12 days), grouping, average centroid coordinate output, and role-based permissions (403 and 401 rejections).
 
+### Milestone N: Flutter Admin Dashboard & Security Router Guards
+* **Objective:** Develop the frontend Admin Portal in Flutter, translate the outbreak analytics payloads to Dart models, and secure admin routes with a GoRouter redirect guard.
+* **Modifications in Backend [admin.py](file:///home/yusufsalyani/Projects/Pharmalink/routing_engine/routers/admin.py):**
+  * Implemented `GET /api/admin/pharmacies` to support retrieving the list of registered nodes for the frontend table.
+* **Modifications in [auth_service.dart](file:///home/yusufsalyani/Projects/Pharmalink/flutter_app/lib/services/auth_service.dart):**
+  * Added `isAdmin` boolean getter checking Supabase JWT metadata and email attributes.
+  * Extracted and saved the authenticated user's role on login.
+* **Modifications in [app_router.dart](file:///home/yusufsalyani/Projects/Pharmalink/flutter_app/lib/routes/app_router.dart):**
+  * Integrated a `redirect` handler checking if unauthenticated users try to access `/admin` (redirects to `/login`), or if authenticated non-admin users try to access it (redirects to `/dashboard`).
+  * Linked the `/admin` path to the new `AdminDashboardScreen`.
+* **Created [outbreak_analytic_model.dart](file:///home/yusufsalyani/Projects/Pharmalink/flutter_app/lib/features/admin/models/outbreak_analytic_model.dart) & [pharmacy_node_model.dart](file:///home/yusufsalyani/Projects/Pharmalink/flutter_app/lib/features/admin/models/pharmacy_node_model.dart):**
+  * Translated and typed the outbreak cluster stats and pharmacy node response structures into Dart models.
+* **Created [admin_service.dart](file:///home/yusufsalyani/Projects/Pharmalink/flutter_app/lib/features/admin/services/admin_service.dart):**
+  * Built REST integration services utilizing the global Dio instance to fetch pharmacies, toggle node status, and retrieve outbreak reports.
+* **Created [admin_dashboard_screen.dart](file:///home/yusufsalyani/Projects/Pharmalink/flutter_app/lib/features/admin/presentation/admin_dashboard_screen.dart):**
+  * Created the UI featuring active metrics cards, outbreak location list with frequency count, and registered nodes control panel with interactive Switch toggles.
+* **Created [admin_service_test.dart](file:///home/yusufsalyani/Projects/Pharmalink/flutter_app/test/admin_service_test.dart):**
+  * Wrote Dio-mocked unit tests validating parsing, coordinate mapping, and state-mutation triggers.
+
+### Milestone O: Dual-View Outbreak Analytics Map Dashboard
+* **Objective:** Build an interactive Dual-View geospatial outbreak analytics dashboard linking lists and visual map layers.
+* **Created [outbreak_map.dart](file:///home/yusufsalyani/Projects/Pharmalink/flutter_app/lib/features/admin/presentation/widgets/outbreak_map.dart):**
+  * Built an interactive OpenStreetMap visual display using `flutter_map` showing markers/pins at each outbreak centroid.
+  * Tapping a marker centers the map on that centroid and zooms in.
+* **Created [outbreak_list.dart](file:///home/yusufsalyani/Projects/Pharmalink/flutter_app/lib/features/admin/presentation/widgets/outbreak_list.dart):**
+  * Created a details text list mapping drug name and request count, exposing an `onItemTapped` event callback.
+* **Modifications in [admin_dashboard_screen.dart](file:///home/yusufsalyani/Projects/Pharmalink/flutter_app/lib/features/admin/presentation/admin_dashboard_screen.dart):**
+  * Instantiated a `MapController` and linked the visual map widget above the text list.
+  * Synchronized selections so that clicking an outbreak list item triggers the `MapController` to programmatically pan and zoom to the matching centroid coordinate.
+
+### Milestone P: Database Safety Guards, Test Isolation & Automated Seeding Tool
+* **Objective:** Secure credentials and separate the test suite execution database from live databases to prevent accidental metadata deletion, and build an automated seeder to ease local front-end testing.
+* **Modifications in [settings.py](routing_engine/settings.py):**
+  * Removed all hardcoded Supabase API keys and database fallbacks, migrating them to secure `.env` variables.
+  * Added `TEST_DATABASE_URL` pointing tests to local PostgreSQL, and a fast-fail runtime guard preventing production runs without active environment variables.
+* **Created [conftest.py](routing_engine/tests/conftest.py):**
+  * Centralized pytest fixtures (`test_engine`, `db_session`, and FastAPI dependency overrides) to DRY up tests.
+  * Added a session-level autouse safety check raising a `RuntimeError` if tests run against `supabase.co`/`supabase.com` domains or if `APP_ENV` is set to `production`.
+* **Refactored Test Suite Files:**
+  * Cleaned duplicate fixtures and unused imports from [test_admin_analytics.py](routing_engine/tests/test_admin_analytics.py), [test_admin_auth.py](routing_engine/tests/test_admin_auth.py), [test_api.py](routing_engine/tests/test_api.py), [test_auth.py](routing_engine/tests/test_auth.py), [test_crud.py](routing_engine/tests/test_crud.py), [test_retrieval.py](routing_engine/tests/test_retrieval.py), and [test_spatial.py](routing_engine/tests/test_spatial.py).
+  * Swapped legacy `httpx2` imports for standard `httpx` across all test suites.
+* **Created [seed_data.py](routing_engine/seed_data.py):**
+  * Built an automated Python script utilizing the Supabase GoTrue Admin API to register 6 mock pharmacies and 1 administrator, verify emails, sync their profiles, populate 10 inventory items per node, and seed stock request outbreaks and notifications.
+
 ---
 
 ## 3. Active Verification Setup
@@ -190,6 +234,12 @@ To run the admin outbreak detection analytics test suite:
 PYTHONPATH=routing_engine routing_engine/venv/bin/pytest routing_engine/tests/test_admin_analytics.py -v
 ```
 
+### Database Seeding Tool
+To register mock auth users and seed database profiles, stock inventory records, and outbreaks:
+```bash
+# From Projects/Pharmalink root directory:
+PYTHONPATH=routing_engine routing_engine/venv/bin/python routing_engine/seed_data.py
+```
 
 ### Backend Container Stack Verification
 To build, start, and run the entire backend container stack:
@@ -208,3 +258,4 @@ To verify the generated models and services compile cleanly without syntax or ty
 flutter pub get
 flutter analyze
 ```
+

@@ -1,37 +1,13 @@
 import pytest
-import pytest_asyncio
 import asyncio
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.exc import MissingGreenlet
 
-from database import DATABASE_URL
-from models import Base, PharmacyNode, StockRequest, AlertNotification
+from models import PharmacyNode, StockRequest, AlertNotification
 import schemas
 import crud
 
-@pytest_asyncio.fixture
-async def test_engine():
-    engine = create_async_engine(DATABASE_URL, echo=False, future=True)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-        await conn.run_sync(Base.metadata.create_all)
-    yield engine
-    await engine.dispose()
-
-# Fixture to yield a database session and clean up created test records
-@pytest_asyncio.fixture
-async def db_session(test_engine):
-    AsyncSessionLocal = sessionmaker(
-        bind=test_engine, 
-        class_=AsyncSession, 
-        expire_on_commit=False
-    )
-    async with AsyncSessionLocal() as session:
-        yield session
-        # Rollback transaction after test run to prevent dirty DB state
-        await session.rollback()
 
 @pytest.mark.asyncio
 async def test_create_and_fetch_stock_request_with_eager_alerts(db_session: AsyncSession):

@@ -1,40 +1,12 @@
 import pytest
-import pytest_asyncio
-from httpx2 import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
+from httpx import AsyncClient, ASGITransport
 
-from database import DATABASE_URL, get_db
-from models import Base, PharmacyNode, StockRequest, AlertNotification
+from database import get_db
+from models import PharmacyNode, StockRequest, AlertNotification
 import schemas
 import crud
 from main import app
 
-@pytest_asyncio.fixture
-async def test_engine():
-    engine = create_async_engine(DATABASE_URL, echo=False, future=True)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-        await conn.run_sync(Base.metadata.create_all)
-    yield engine
-    await engine.dispose()
-
-@pytest_asyncio.fixture
-async def db_session(test_engine):
-    AsyncSessionLocal = sessionmaker(
-        bind=test_engine, 
-        class_=AsyncSession, 
-        expire_on_commit=False
-    )
-    async with AsyncSessionLocal() as session:
-        yield session
-        await session.rollback()
-
-@pytest.fixture(autouse=True)
-def override_db_dependency(db_session):
-    app.dependency_overrides[get_db] = lambda: db_session
-    yield
-    app.dependency_overrides.pop(get_db, None)
 
 @pytest.mark.asyncio
 async def test_retrieval_endpoints(db_session):

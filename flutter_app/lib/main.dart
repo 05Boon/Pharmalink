@@ -14,7 +14,7 @@ void main() async {
     url: ApiConfig.supabaseUrl.isEmpty
         ? 'https://fjnbnbtjsuxumtmhcidh.supabase.co'
         : ApiConfig.supabaseUrl,
-    anonKey: ApiConfig.supabaseAnonKey.isEmpty
+    publishableKey: ApiConfig.supabaseAnonKey.isEmpty
         ? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqbmJuYnRqc3V4dW10bWhjaWRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MjgzNTMsImV4cCI6MjA5NzIwNDM1M30.Ggqrad3PqQ_szto9zgT_alJveag97IgOh_LRB5czC3c'
         : ApiConfig.supabaseAnonKey,
   );

@@ -11,6 +11,51 @@ import schemas
 
 admin_router = APIRouter(prefix="/api/admin", tags=["admin"])
 
+
+@admin_router.get(
+    "/pharmacies",
+    response_model=list[schemas.PharmacyNodeResponse],
+    summary="List all pharmacy nodes (Admin only)"
+)
+async def get_all_pharmacies(
+    admin=Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Returns a list of all registered pharmacy nodes with their locations.
+    Only accessible by administrators.
+    """
+    stmt = select(PharmacyNode)
+    result = await db.execute(stmt)
+    nodes = result.scalars().all()
+    
+    response_nodes = []
+    for node in nodes:
+        # Extract coordinates
+        coord_query = select(
+            func.ST_X(PharmacyNode.location),
+            func.ST_Y(PharmacyNode.location)
+        ).where(PharmacyNode.pharmacy_id == node.pharmacy_id)
+        coord_result = await db.execute(coord_query)
+        coord = coord_result.first()
+        
+        longitude = coord[0] if coord else 0.0
+        latitude = coord[1] if coord else 0.0
+        
+        response_nodes.append(schemas.PharmacyNodeResponse(
+            pharmacy_id=node.pharmacy_id,
+            business_name=node.business_name,
+            license_number=node.license_number,
+            email=node.email,
+            phone_number=node.phone_number,
+            latitude=latitude,
+            longitude=longitude,
+            account_status=node.account_status,
+            created_at=node.created_at
+        ))
+    return response_nodes
+
+
 @admin_router.patch(
     "/pharmacies/{pharmacy_id}/status",
     response_model=schemas.PharmacyNodeResponse,
