@@ -5,7 +5,7 @@ import '../models/pharmacy_node_model.dart';
 
 class AdminService {
   static Future<List<PharmacyNode>> fetchPharmacies() async {
-    final response = await dio.get('${ApiConfig.baseUrl}/api/admin/pharmacies');
+    final response = await dio.get('${ApiConfig.baseUrl}/admin/pharmacies');
     if (response.statusCode == 200) {
       final list = response.data as List<dynamic>;
       return list.map((item) => PharmacyNode.fromJson(item as Map<String, dynamic>)).toList();
@@ -16,7 +16,7 @@ class AdminService {
 
   static Future<PharmacyNode> updatePharmacyStatus(String pharmacyId, String status) async {
     final response = await dio.patch(
-      '${ApiConfig.baseUrl}/api/admin/pharmacies/$pharmacyId/status',
+      '${ApiConfig.baseUrl}/admin/pharmacies/$pharmacyId/status',
       data: {'account_status': status},
     );
     if (response.statusCode == 200) {
@@ -28,7 +28,7 @@ class AdminService {
 
   static Future<List<OutbreakAnalytic>> fetchOutbreaks({int days = 7}) async {
     final response = await dio.get(
-      '${ApiConfig.baseUrl}/api/admin/analytics/outbreaks',
+      '${ApiConfig.baseUrl}/admin/analytics/outbreaks',
       queryParameters: {'days': days},
     );
     if (response.statusCode == 200) {

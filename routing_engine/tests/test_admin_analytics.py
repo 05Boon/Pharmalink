@@ -2,11 +2,11 @@ import pytest
 import datetime
 from httpx import AsyncClient, ASGITransport
 
-from database import get_db
-from models import PharmacyNode, SystemAdmin, StockRequest
-import schemas
-import crud
-from main import app
+from app.database import get_db
+from app.models import PharmacyNode, SystemAdmin, StockRequest
+from app import schemas
+from app import crud
+from app.main import app
 
 
 @pytest.mark.asyncio
@@ -105,19 +105,19 @@ async def test_outbreak_analytics_endpoint(db_session):
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         # --- TEST 1: Unauthenticated request -> 401 Unauthorized ---
-        response = await ac.get("/api/admin/analytics/outbreaks")
+        response = await ac.get("/api/v1/admin/analytics/outbreaks")
         assert response.status_code == 401
 
         # --- TEST 2: Standard pharmacy attempt -> 403 Forbidden ---
         response = await ac.get(
-            "/api/admin/analytics/outbreaks",
+            "/api/v1/admin/analytics/outbreaks",
             headers={"Authorization": "Bearer mock-pharmacy-a"}
         )
         assert response.status_code == 403
 
         # --- TEST 3: Admin request (default 7 days) -> 200 OK with correct values ---
         response = await ac.get(
-            "/api/admin/analytics/outbreaks",
+            "/api/v1/admin/analytics/outbreaks",
             headers={"Authorization": "Bearer mock-admin-uuid"}
         )
         assert response.status_code == 200
@@ -138,7 +138,7 @@ async def test_outbreak_analytics_endpoint(db_session):
 
         # --- TEST 4: Admin request with custom days parameter (e.g. days=12) ---
         response = await ac.get(
-            "/api/admin/analytics/outbreaks",
+            "/api/v1/admin/analytics/outbreaks",
             params={"days": 12},
             headers={"Authorization": "Bearer mock-admin-uuid"}
         )
@@ -153,7 +153,7 @@ async def test_outbreak_analytics_endpoint(db_session):
 
         # --- TEST 5: Admin request with invalid negative days parameter -> 400 Bad Request ---
         response = await ac.get(
-            "/api/admin/analytics/outbreaks",
+            "/api/v1/admin/analytics/outbreaks",
             params={"days": -1},
             headers={"Authorization": "Bearer mock-admin-uuid"}
         )

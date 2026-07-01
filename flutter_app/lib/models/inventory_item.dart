@@ -1,62 +1,39 @@
 class InventoryItem {
-  final String? itemId;
+  final String itemId;
   final String pharmacyId;
   final String drugName;
+  final String? drugCategory;
   final int stockQuantity;
-  final Map<String, dynamic> raw;
+  final DateTime lastUpdated;
 
-  const InventoryItem({
+  InventoryItem({
     required this.itemId,
     required this.pharmacyId,
     required this.drugName,
+    this.drugCategory,
     required this.stockQuantity,
-    required this.raw,
+    required this.lastUpdated,
   });
 
   factory InventoryItem.fromJson(Map<String, dynamic> json) {
     return InventoryItem(
-      itemId: _asNullableString(json['item_id'] ?? json['id']),
-      pharmacyId: _asString(json['pharmacy_id'], fallback: ''),
-      drugName: _asString(json['drug_name'] ?? json['drug'], fallback: '-'),
-      stockQuantity: _asInt(json['stock_quantity'] ?? json['qty']),
-      raw: Map<String, dynamic>.from(json),
+      itemId: json['item_id'] as String,
+      pharmacyId: json['pharmacy_id'] as String,
+      drugName: json['drug_name'] as String,
+      drugCategory: json['drug_category'] as String?,
+      stockQuantity: json['stock_quantity'] as int,
+      lastUpdated: DateTime.parse(json['last_updated'] as String),
     );
   }
 
   Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      ...raw,
+    return {
       'item_id': itemId,
       'pharmacy_id': pharmacyId,
       'drug_name': drugName,
+      'drug_category': drugCategory,
       'stock_quantity': stockQuantity,
+      'last_updated': lastUpdated.toIso8601String(),
     };
-  }
-
-  static String _asString(dynamic value, {required String fallback}) {
-    if (value is String && value.trim().isNotEmpty) {
-      return value;
-    }
-    if (value != null) {
-      return '$value';
-    }
-    return fallback;
-  }
-
-  static String? _asNullableString(dynamic value) {
-    if (value is String && value.trim().isNotEmpty) {
-      return value;
-    }
-    if (value != null) {
-      return '$value';
-    }
-    return null;
-  }
-
-  static int _asInt(dynamic value) {
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    if (value is String) return int.tryParse(value) ?? 0;
-    return 0;
   }
 }

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:web_socket_channel/io.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../config/api_config.dart';
 import 'auth_service.dart';
@@ -15,7 +15,7 @@ class RealtimeAlertService {
   final StreamController<Map<String, dynamic>> _alertsController =
       StreamController<Map<String, dynamic>>.broadcast();
 
-  IOWebSocketChannel? _channel;
+  WebSocketChannel? _channel;
   StreamSubscription<dynamic>? _channelSubscription;
   Timer? _pingTimer;
   Timer? _reconnectTimer;
@@ -40,7 +40,7 @@ class RealtimeAlertService {
 
     try {
       final uri = _buildWsUri(token);
-      _channel = IOWebSocketChannel.connect(uri);
+      _channel = WebSocketChannel.connect(uri);
       _channelSubscription = _channel!.stream.listen(
         _handleMessage,
         onError: (error) {

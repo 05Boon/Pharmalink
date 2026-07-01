@@ -28,8 +28,8 @@ import sys
 import uuid as uuid_module
 
 from sqlalchemy import select
-from database import AsyncSessionLocal
-from models import SystemAdmin
+from app.database import AsyncSessionLocal
+from app.models import SystemAdmin
 
 
 async def make_admin(admin_uuid: str, email: str, role_level: int = 1):

@@ -7,6 +7,7 @@ import '../models/alert_notification.dart';
 import '../models/inventory_item.dart';
 import '../models/stock_request.dart';
 import 'app_dio.dart';
+import 'auth_service.dart';
 
 class NetworkDataService {
   NetworkDataService._();
@@ -153,6 +154,21 @@ class NetworkDataService {
     return <String, dynamic>{'data': decoded};
   }
 
+  static Future<Map<String, dynamic>> _deleteMap(
+    String url,
+  ) async {
+    final response = await _dio.delete(url);
+    _throwForBadStatus(response);
+    if (response.data == null || response.data.toString().isEmpty) {
+      return <String, dynamic>{};
+    }
+    final decoded = _normalizeResponseData(response.data);
+    if (decoded is Map<String, dynamic>) {
+      return decoded;
+    }
+    return <String, dynamic>{'data': decoded};
+  }
+
   static Future<Map<String, dynamic>> createStockRequestAndBroadcast({
     required String requestedDrug,
     required int requiredQuantity,
@@ -223,7 +239,12 @@ class NetworkDataService {
   }
 
   static Future<List<StockRequest>> getIncomingRequestModels() async {
-    return _getModelList(ApiConfig.requestsUrl, StockRequest.fromJson);
+    final allRequests = await _getModelList(ApiConfig.requestsUrl, StockRequest.fromJson);
+    final currentUserId = AuthService.currentUser?['id'];
+    if (currentUserId != null) {
+      return allRequests.where((r) => r.pharmacyId != currentUserId).toList();
+    }
+    return allRequests;
   }
 
   static Future<StockRequest> getSentRequestModel() async {
@@ -247,6 +268,24 @@ class NetworkDataService {
       '${ApiConfig.baseUrl}/admin/pharmacies/$pharmacyId/inventory',
       InventoryItem.fromJson,
     );
+  }
+
+  static Future<List<Map<String, dynamic>>> getMyInventory() async {
+    return _getList('${ApiConfig.baseUrl}/inventory');
+  }
+
+  static Future<Map<String, dynamic>> addInventoryItem(Map<String, dynamic> data) async {
+    return _postMap('${ApiConfig.baseUrl}/inventory', data);
+  }
+
+  static Future<Map<String, dynamic>> updateInventoryQuantity(String itemId, int quantity) async {
+    return _patchMap('${ApiConfig.baseUrl}/inventory/$itemId', {
+      'stock_quantity': quantity
+    });
+  }
+
+  static Future<void> deleteInventoryItem(String itemId) async {
+    await _deleteMap('${ApiConfig.baseUrl}/inventory/$itemId');
   }
 
   static Future<List<AlertNotification>> getAlertNotificationModels() async {

@@ -1,11 +1,11 @@
 import pytest
 from httpx import AsyncClient, ASGITransport
 
-from database import get_db
-from models import PharmacyNode, SystemAdmin
-import schemas
-import crud
-from main import app
+from app.database import get_db
+from app.models import PharmacyNode, SystemAdmin
+from app import schemas
+from app import crud
+from app.main import app
 
 
 @pytest.mark.asyncio
@@ -33,7 +33,7 @@ async def test_admin_auth_and_status_toggle(db_session):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         # --- TEST 1: Standard pharmacy attempts status change -> 403 Forbidden ---
         response = await ac.patch(
-            "/api/admin/pharmacies/mock-pharmacy-a/status",
+            "/api/v1/admin/pharmacies/mock-pharmacy-a/status",
             json={"account_status": "SUSPENDED"},
             headers={"Authorization": "Bearer mock-pharmacy-a"}
         )
@@ -42,14 +42,14 @@ async def test_admin_auth_and_status_toggle(db_session):
 
         # --- TEST 2: Unauthenticated request -> 401 Unauthorized ---
         response = await ac.patch(
-            "/api/admin/pharmacies/mock-pharmacy-a/status",
+            "/api/v1/admin/pharmacies/mock-pharmacy-a/status",
             json={"account_status": "SUSPENDED"}
         )
         assert response.status_code == 401
 
         # --- TEST 3: Admin changes status -> 200 OK and returns correct response ---
         response = await ac.patch(
-            "/api/admin/pharmacies/mock-pharmacy-a/status",
+            "/api/v1/admin/pharmacies/mock-pharmacy-a/status",
             json={"account_status": "SUSPENDED"},
             headers={"Authorization": "Bearer mock-admin-uuid"}
         )
@@ -68,7 +68,7 @@ async def test_admin_auth_and_status_toggle(db_session):
 
         # --- TEST 4: Admin attempts status update on non-existent pharmacy -> 404 Not Found ---
         response = await ac.patch(
-            "/api/admin/pharmacies/non-existent-pharmacy/status",
+            "/api/v1/admin/pharmacies/non-existent-pharmacy/status",
             json={"account_status": "ACTIVE"},
             headers={"Authorization": "Bearer mock-admin-uuid"}
         )

@@ -4,11 +4,11 @@ from sqlalchemy.future import select
 from sqlalchemy import func
 from typing import List
 
-from database import get_db
-from dependencies import get_current_user_uuid
-from models import PharmacyNode, InventoryItem
-import crud
-import schemas
+from app.database import get_db
+from app.dependencies import get_current_user_uuid
+from app.models import PharmacyNode, InventoryItem
+from app import crud
+from app import schemas
 
 api_router = APIRouter()
 
@@ -78,6 +78,37 @@ async def patch_stock_level(
     return await crud.update_inventory_item_stock(db, item_id, update_in.stock_quantity)
 
 
+@api_router.delete(
+    "/inventory/{item_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete an inventory item"
+)
+async def delete_stock_item(
+    item_id: str,
+    pharmacy_id: str = Depends(get_current_user_uuid),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Deletes a specific inventory item. 
+    Verifies that the target item belongs to the authenticated pharmacy.
+    """
+    db_item = await crud.get_inventory_item(db, item_id)
+    if not db_item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Inventory item not found."
+        )
+    
+    if db_item.pharmacy_id != pharmacy_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Permission denied. You cannot modify inventory items belonging to other pharmacies."
+        )
+        
+    await crud.delete_inventory_item(db, item_id)
+    return None
+
+
 # --- Broadcasts Endpoints ---
 
 @api_router.post(
@@ -126,7 +157,7 @@ async def create_request_and_broadcast(
     )
     
     # 4. Ingest AlertNotification records and broadcast real-time messages
-    from main import manager # Import here to avoid circular dependencies
+    from app.main import manager # Import here to avoid circular dependencies
     
     alerted_count = 0
     for neighbor in neighbors:
@@ -187,4 +218,113 @@ async def get_my_unread_alerts(
     including details of the stock request and the requesting pharmacy's profile.
     """
     return await crud.get_unread_alerts(db, pharmacy_id)
+
+
+@api_router.patch(
+    "/requests/{request_id}/respond",
+    response_model=schemas.StockRequestResponse,
+    summary="Accept or decline an incoming stock request alert"
+)
+async def respond_to_request(
+    request_id: str,
+    payload: schemas.RequestResponseInput,
+    pharmacy_id: str = Depends(get_current_user_uuid),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Allows a neighbor to accept or decline a stock request alert.
+    If accepted, status of the parent request becomes FULFILLED.
+    """
+    updated_request = await crud.respond_to_stock_request(db, pharmacy_id, request_id, payload.status)
+    if not updated_request:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Stock request alert notification not found for this pharmacy."
+        )
+    return updated_request
+
+
+@api_router.get(
+    "/requests",
+    response_model=List[schemas.StockRequestResponse],
+    summary="Get all requests relevant to the authenticated pharmacy"
+)
+async def get_my_requests(
+    pharmacy_id: str = Depends(get_current_user_uuid),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Returns all stock requests created by the pharmacy OR sent as alerts to the pharmacy.
+    """
+    return await crud.get_user_relevant_requests(db, pharmacy_id)
+
+
+@api_router.get(
+    "/alerts",
+    response_model=List[schemas.AlertNotificationDetailResponse],
+    summary="Get all alert notifications targeted at the authenticated pharmacy"
+)
+async def get_my_alerts(
+    pharmacy_id: str = Depends(get_current_user_uuid),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Returns all alert notifications (both read and unread) targeted at the pharmacy.
+    """
+    return await crud.get_all_user_alerts(db, pharmacy_id)
+
+
+@api_router.get(
+    "/dashboard",
+    response_model=schemas.DashboardResponse,
+    summary="Consolidate dashboard metrics and lists for the pharmacy owner"
+)
+async def get_dashboard(
+    pharmacy_id: str = Depends(get_current_user_uuid),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Aggregates active outgoing queries count, incoming requests count,
+    completed transactions count, recent requests list, active queries list,
+    and low stock inventory items.
+    """
+    return await crud.get_dashboard_metrics(db, pharmacy_id)
+
+
+@api_router.get(
+    "/requests/sent/current",
+    response_model=schemas.StockRequestResponse,
+    summary="Get the most recent stock request sent by the authenticated pharmacy"
+)
+async def get_current_sent_request(
+    pharmacy_id: str = Depends(get_current_user_uuid),
+    db: AsyncSession = Depends(get_db)
+):
+    request = await crud.get_last_sent_request(db, pharmacy_id)
+    if not request:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No sent stock requests found for this pharmacy."
+        )
+    return request
+
+
+@api_router.get(
+    "/requests/accepted/current",
+    response_model=schemas.StockRequestResponse,
+    summary="Get the most recent stock request accepted by the authenticated pharmacy"
+)
+async def get_current_accepted_request(
+    pharmacy_id: str = Depends(get_current_user_uuid),
+    db: AsyncSession = Depends(get_db)
+):
+    request = await crud.get_last_accepted_request(db, pharmacy_id)
+    if not request:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No accepted stock requests found for this pharmacy."
+        )
+    return request
+
+
 

@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
-from settings import DATABASE_URL
+from app.settings import DATABASE_URL
 
 # 2. Create the Async Engine (The physical engine that manages database queries)
 engine = create_async_engine(

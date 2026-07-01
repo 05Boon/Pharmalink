@@ -1,6 +1,6 @@
 import asyncio
-from database import AsyncSessionLocal
-from models import PharmacyNode
+from app.database import AsyncSessionLocal
+from app.models import PharmacyNode
 from sqlalchemy.future import select
 
 async def test_database_insert():

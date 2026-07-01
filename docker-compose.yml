@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: local_secret_password
       POSTGRES_DB: pharmacy_network_db
     ports:
-      - "5433:5432"
+      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -28,8 +28,9 @@ services:
     depends_on:
       database:
         condition: service_healthy
-    command: >
-      sh -c "python create_tables.py && uvicorn main:app --host 0.0.0.0 --port 8000"
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    env_file:
+      - ./routing_engine/.env
     networks:
       - pharmalink-network
 

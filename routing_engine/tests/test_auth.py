@@ -1,10 +1,10 @@
 import pytest
 from httpx import AsyncClient, ASGITransport
 
-from database import get_db
-import crud
-import schemas
-from main import app
+from app.database import get_db
+from app import crud
+from app import schemas
+from app.main import app
 
 
 @pytest.mark.asyncio
@@ -21,7 +21,7 @@ async def test_sync_profile_success(db_session):
         }
         
         # Sync profile
-        response = await ac.post("/api/pharmacies/sync-profile", json=payload, headers=headers)
+        response = await ac.post("/api/v1/pharmacies/sync-profile", json=payload, headers=headers)
         assert response.status_code == 201
         
         data = response.json()
@@ -54,11 +54,11 @@ async def test_sync_profile_unauthorized():
         }
         
         # Missing auth header
-        response = await ac.post("/api/pharmacies/sync-profile", json=payload)
+        response = await ac.post("/api/v1/pharmacies/sync-profile", json=payload)
         assert response.status_code == 401
         
         # Invalid format
-        response = await ac.post("/api/pharmacies/sync-profile", json=payload, headers={"Authorization": "Invalid mock-token"})
+        response = await ac.post("/api/v1/pharmacies/sync-profile", json=payload, headers={"Authorization": "Invalid mock-token"})
         assert response.status_code == 401
 
 @pytest.mark.asyncio
@@ -85,7 +85,7 @@ async def test_sync_profile_duplicate_conflict(db_session):
             "longitude": 39.69
         }
         response = await ac.post(
-            "/api/pharmacies/sync-profile",
+            "/api/v1/pharmacies/sync-profile",
             json=payload_same_id,
             headers={"Authorization": "Bearer mock-existing-pharmacy"}
         )
@@ -102,7 +102,7 @@ async def test_sync_profile_duplicate_conflict(db_session):
             "longitude": 39.69
         }
         response = await ac.post(
-            "/api/pharmacies/sync-profile",
+            "/api/v1/pharmacies/sync-profile",
             json=payload_dup_license,
             headers={"Authorization": "Bearer mock-new-pharmacy-2"}
         )
@@ -119,9 +119,56 @@ async def test_sync_profile_duplicate_conflict(db_session):
             "longitude": 39.69
         }
         response = await ac.post(
-            "/api/pharmacies/sync-profile",
+            "/api/v1/pharmacies/sync-profile",
             json=payload_dup_email,
             headers={"Authorization": "Bearer mock-new-pharmacy-3"}
         )
         assert response.status_code == 400
         assert "email is already registered" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_get_and_update_profile(db_session):
+    # 1. Setup profile
+    profile = schemas.PharmacyProfileSync(
+        business_name="Original Name",
+        license_number="PPB-PROFILE-123",
+        email="profile@test.com",
+        phone_number="0711111111",
+        latitude=-1.28,
+        longitude=36.82
+    )
+    await crud.create_pharmacy_node(db_session, "mock-profile-user", profile)
+    
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        headers = {"Authorization": "Bearer mock-profile-user"}
+        
+        # 2. Get profile (GET /api/v1/pharmacies/me)
+        resp = await ac.get("/api/v1/pharmacies/me", headers=headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["business_name"] == "Original Name"
+        assert data["email"] == "profile@test.com"
+        assert data["latitude"] == pytest.approx(-1.28)
+        assert data["longitude"] == pytest.approx(36.82)
+        
+        # 3. Update profile (PUT /api/v1/pharmacies/me)
+        update_payload = {
+            "business_name": "Updated Name",
+            "phone_number": "0722222222",
+            "latitude": -1.29,
+            "longitude": 36.83
+        }
+        resp = await ac.put("/api/v1/pharmacies/me", json=update_payload, headers=headers)
+        assert resp.status_code == 200
+        data_updated = resp.json()
+        assert data_updated["business_name"] == "Updated Name"
+        assert data_updated["phone_number"] == "0722222222"
+        assert data_updated["latitude"] == pytest.approx(-1.29)
+        assert data_updated["longitude"] == pytest.approx(36.83)
+        
+        # Verify db persistence
+        db_node = await crud.get_pharmacy_node(db_session, "mock-profile-user")
+        assert db_node.business_name == "Updated Name"
+        assert db_node.phone_number == "0722222222"
+

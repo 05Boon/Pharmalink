@@ -55,7 +55,7 @@ class ViewResponsePage extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'To: ${details['to'] ?? '-'}',
+                                  'To: ${details['pharmacy']?['business_name'] ?? 'Nearby Pharmacies'}',
                                   style: const TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600,
@@ -64,14 +64,14 @@ class ViewResponsePage extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'Drug: ${details['drug'] ?? '-'}',
+                                  'Drug: ${details['requested_drug'] ?? '-'}',
                                   style: const TextStyle(
                                     fontSize: 10,
                                     color: Color(0xFF5F5E5A),
                                   ),
                                 ),
                                 Text(
-                                  'Quantity: ${details['quantity'] ?? '-'}',
+                                  'Quantity: ${details['required_quantity'] ?? '-'}',
                                   style: const TextStyle(
                                     fontSize: 10,
                                     color: Color(0xFF5F5E5A),
@@ -79,7 +79,7 @@ class ViewResponsePage extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Status: ${details['status'] ?? '-'}',
+                                  'Status: ${details['request_status'] ?? '-'}',
                                   style: const TextStyle(
                                     fontSize: 10,
                                     color: Color(0xFF633806),

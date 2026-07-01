@@ -136,14 +136,18 @@ class _DrugQueryPageState extends State<DrugQueryPage> {
                       AppTextField(
                         placeholder: 'Drug name / generic name',
                         controller: _drugNameController,
+                        enabled: !_isSubmitting,
                       ),
                       AppTextField(
                         placeholder: 'Quantity needed',
                         keyboardType: TextInputType.number,
                         controller: _quantityController,
+                        enabled: !_isSubmitting,
                       ),
-                      const AppTextField(
-                          placeholder: 'Dosage / form (optional)'),
+                      AppTextField(
+                        placeholder: 'Dosage / form (optional)',
+                        enabled: !_isSubmitting,
+                      ),
                       if (_errorMessage != null) ...[
                         const SizedBox(height: 8),
                         Text(
@@ -170,7 +174,7 @@ class _DrugQueryPageState extends State<DrugQueryPage> {
                               label: '5 km',
                               value: 5,
                               selected: selectedRadius == 5,
-                              onTap: () => setState(() => selectedRadius = 5),
+                              onTap: _isSubmitting ? () {} : () => setState(() => selectedRadius = 5),
                             ),
                           ),
                           const SizedBox(width: 4),
@@ -179,7 +183,7 @@ class _DrugQueryPageState extends State<DrugQueryPage> {
                               label: '10 km',
                               value: 10,
                               selected: selectedRadius == 10,
-                              onTap: () => setState(() => selectedRadius = 10),
+                              onTap: _isSubmitting ? () {} : () => setState(() => selectedRadius = 10),
                             ),
                           ),
                           const SizedBox(width: 4),
@@ -188,14 +192,15 @@ class _DrugQueryPageState extends State<DrugQueryPage> {
                               label: '20 km',
                               value: 20,
                               selected: selectedRadius == 20,
-                              onTap: () => setState(() => selectedRadius = 20),
+                              onTap: _isSubmitting ? () {} : () => setState(() => selectedRadius = 20),
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 6),
-                      const AppTextField(
+                      AppTextField(
                         placeholder: 'Your location (auto-detected)',
+                        enabled: !_isSubmitting,
                       ),
                       const SizedBox(height: 4),
                       AppButton(
@@ -206,7 +211,7 @@ class _DrugQueryPageState extends State<DrugQueryPage> {
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton(
-                          onPressed: () => context.go('/dashboard'),
+                          onPressed: _isSubmitting ? null : () => context.go('/dashboard'),
                           style: OutlinedButton.styleFrom(
                             backgroundColor: const Color(0xFFF1EFEA),
                             foregroundColor: const Color(0xFF1A1A18),

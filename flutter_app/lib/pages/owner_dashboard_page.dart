@@ -149,13 +149,30 @@ class OwnerDashboardPage extends StatelessWidget {
                             ],
                           ),
                         const SizedBox(height: 12),
-                        SizedBox(
-                          width: 180,
-                          child: AppButton(
-                            text: '+ New drug query',
-                            onPressed: () => context.go('/search'),
-                            fullWidth: false,
-                          ),
+                        Row(
+                          children: [
+                            SizedBox(
+                              width: 180,
+                              child: AppButton(
+                                text: '+ New drug query',
+                                onPressed: () => context.go('/search'),
+                                fullWidth: false,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            SizedBox(
+                              width: 180,
+                              child: OutlinedButton(
+                                onPressed: () => context.go('/inventory'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xFF1D9E75),
+                                  side: const BorderSide(color: Color(0xFF1D9E75)),
+                                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                                ),
+                                child: const Text('Manage Stock', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),

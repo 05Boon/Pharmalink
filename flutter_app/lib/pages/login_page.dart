@@ -53,7 +53,11 @@ class _LoginPageState extends State<LoginPage> {
       if (result['ok'] == true) {
         await RealtimeAlertService.instance.connect();
         if (!mounted) return;
-        context.go('/dashboard');
+        if (AuthService.isAdmin) {
+          context.go('/admin');
+        } else {
+          context.go('/dashboard');
+        }
       } else {
         setState(() {
           _errorMessage = result['error']?['message'] ?? 'Login failed';

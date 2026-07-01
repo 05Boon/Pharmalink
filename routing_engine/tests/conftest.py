@@ -3,10 +3,10 @@ import pytest_asyncio
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
-from database import get_db
-from models import Base
-from settings import TEST_DATABASE_URL, APP_ENV
-from main import app
+from app.database import get_db
+from app.models import Base
+from app.settings import TEST_DATABASE_URL, APP_ENV
+from app.main import app
 
 
 @pytest_asyncio.fixture(scope="session", autouse=True)

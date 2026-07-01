@@ -3,8 +3,8 @@ import asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 
-from models import PharmacyNode, InventoryItem
-import crud
+from app.models import PharmacyNode, InventoryItem
+from app import crud
 
 
 @pytest.mark.asyncio

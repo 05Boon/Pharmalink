@@ -57,11 +57,14 @@ class _ReceiveAlertPageState extends State<ReceiveAlertPage> {
       ...alert,
       'request_id': requestId,
       'alert_id': alertId,
-      'from': alert['requesting_pharmacy_name'] ?? alert['from'] ?? '-',
-      'drug': alert['requested_drug'] ?? alert['drug'] ?? '-',
-      'qty': alert['required_quantity'] ?? alert['qty'] ?? 0,
-      'time': alert['created_at'] ?? alert['time'] ?? '-',
-      'status': alert['status'] ?? 'PENDING',
+      'pharmacy_id': alert['pharmacy_id'] ?? '',
+      'pharmacy': {
+        'business_name': alert['requesting_pharmacy_name'] ?? alert['from'] ?? '-'
+      },
+      'requested_drug': alert['requested_drug'] ?? alert['drug'] ?? '-',
+      'required_quantity': alert['required_quantity'] ?? alert['qty'] ?? 0,
+      'created_at': alert['created_at'] ?? alert['time'] ?? '-',
+      'request_status': alert['status'] ?? 'PENDING',
     };
   }
 
@@ -201,7 +204,7 @@ class _ReceiveAlertPageState extends State<ReceiveAlertPage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'From: ${req['from'] ?? req['source'] ?? 'Unknown'}',
+                                      'From: ${req['pharmacy']?['business_name'] ?? req['pharmacy_id'] ?? 'Unknown'}',
                                       style: const TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w600,
@@ -210,7 +213,7 @@ class _ReceiveAlertPageState extends State<ReceiveAlertPage> {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      '${req['drug'] ?? req['drug_name'] ?? '-'} • ${req['qty'] ?? req['quantity'] ?? '-'}',
+                                      '${req['requested_drug'] ?? '-'} • ${req['required_quantity'] ?? '-'}',
                                       style: const TextStyle(
                                         fontSize: 10,
                                         color: Color(0xFF5F5E5A),
@@ -218,7 +221,7 @@ class _ReceiveAlertPageState extends State<ReceiveAlertPage> {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      '${req['time'] ?? req['created_at'] ?? '-'}',
+                                      '${req['created_at'] ?? '-'}',
                                       style: const TextStyle(
                                         fontSize: 10,
                                         color: Color(0xFF5F5E5A),

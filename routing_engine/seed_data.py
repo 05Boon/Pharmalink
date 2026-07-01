@@ -2,9 +2,9 @@ import asyncio
 import datetime
 from httpx import AsyncClient
 
-from database import AsyncSessionLocal
-from models import PharmacyNode, InventoryItem, SystemAdmin, StockRequest, AlertNotification
-from settings import SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
+from app.database import AsyncSessionLocal
+from app.models import PharmacyNode, InventoryItem, SystemAdmin, StockRequest, AlertNotification
+from app.settings import SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
 from sqlalchemy.future import select
 
 # Seed data for Nairobi test pharmacies
@@ -102,9 +102,12 @@ async def get_or_create_user(client: AsyncClient, email: str, password: str, nam
 
     url = f"{SUPABASE_URL}/auth/v1/admin/users"
     resp = await client.post(url, json=payload, headers=headers)
-    if resp.status_code == 201:
+    if resp.status_code in [200, 201]:
         data = resp.json()
-        print(f"Registered brand new Supabase Auth account: {email}")
+        if resp.status_code == 201:
+            print(f"Registered brand new Supabase Auth account: {email}")
+        else:
+            print(f"Reusing existing Supabase Auth account (GoTrue returned 200): {email}")
         return data["id"]
     elif resp.status_code in [400, 422]:
         # Attempt to search list to retrieve uuid for existing mock user
@@ -168,7 +171,7 @@ async def seed():
                         license_number=p["license_number"],
                         email=p["email"],
                         phone_number=p["phone_number"],
-                        location=f"POINT({p['longitude']} {p['latitude']})",
+                        location=f"SRID=4326;POINT({p['longitude']} {p['latitude']})",
                         account_status="approved",
                     )
                     db.add(node)
@@ -233,17 +236,15 @@ async def seed():
             # Let's seed a pending alert for Westlands and Kilimani for testing incoming UI alerts
             alert_1 = AlertNotification(
                 request_id=req_para_west.request_id,
-                target_pharmacy_id=pharmacy_uuids["Kilimani Test Pharmacy"],
-                distance_meters=1800.0,
-                status="pending",
-                created_at=now - datetime.timedelta(days=3),
+                receiving_pharmacy_id=pharmacy_uuids["Kilimani Test Pharmacy"],
+                alert_status="UNREAD",
+                delivered_at=now - datetime.timedelta(days=3),
             )
             alert_2 = AlertNotification(
                 request_id=req_para_kili.request_id,
-                target_pharmacy_id=pharmacy_uuids["Westlands Test Pharmacy"],
-                distance_meters=1800.0,
-                status="pending",
-                created_at=now - datetime.timedelta(days=2),
+                receiving_pharmacy_id=pharmacy_uuids["Westlands Test Pharmacy"],
+                alert_status="UNREAD",
+                delivered_at=now - datetime.timedelta(days=2),
             )
             db.add_all([alert_1, alert_2])
             await db.commit()

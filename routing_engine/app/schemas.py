@@ -131,5 +131,69 @@ class OutbreakAnalytic(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PharmacyProfileUpdate(BaseModel):
+    business_name: Optional[str] = Field(None, min_length=1, description="Registered name of the pharmacy")
+    phone_number: Optional[str] = Field(None, min_length=1, description="Primary contact phone number")
+    latitude: Optional[float] = Field(None, ge=-90, le=90, description="GPS latitude coordinate")
+    longitude: Optional[float] = Field(None, ge=-180, le=180, description="GPS longitude coordinate")
+
+
+class RequestResponseInput(BaseModel):
+    status: str = Field(..., description="ACCEPTED or DECLINED")
+
+
+class DashboardStats(BaseModel):
+    active_queries: int
+    requests_received: int
+    completed: int
+
+
+class RecentRequestItem(BaseModel):
+    drug_name: str
+    source: str
+    created_at: datetime
+    status: str
+
+
+class ActiveQueryItem(BaseModel):
+    drug_name: str
+    meta: str
+    status: str
+
+
+class DashboardResponse(BaseModel):
+    stats: DashboardStats
+    recent_requests: List[RecentRequestItem]
+    active_queries: List[ActiveQueryItem]
+    low_stock_items: List[InventoryItemResponse]
+
+
+class OnboardingReviewInput(BaseModel):
+    approved: bool
+    status: Optional[str] = None
+    decision: Optional[str] = None
+
+
+class AdminTransactionResponse(BaseModel):
+    id: str = Field(..., alias="id")
+    sender: str = Field(..., alias="from")
+    receiver: str = Field(..., alias="to")
+    drug: str = Field(..., alias="drug")
+    status: str
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+
+class AdminAuditLogResponse(BaseModel):
+    action: str
+    user: str
+    created_at: datetime = Field(..., alias="time")
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+
+
+
+
 
 

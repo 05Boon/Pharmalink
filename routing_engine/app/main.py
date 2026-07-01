@@ -3,10 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict, Set, List
 import logging
 
-from dependencies import resolve_token, get_current_user_uuid
-from routers.api import api_router
-from routers.auth import auth_router
-from routers.admin import admin_router
+from app.dependencies import resolve_token, get_current_user_uuid
+from app.routers.api import api_router
+from app.routers.auth import auth_router
+from app.routers.admin import admin_router
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -66,15 +66,15 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Register REST endpoints router
-app.include_router(api_router)
-app.include_router(auth_router)
-app.include_router(admin_router)
+app.include_router(api_router, prefix="/api/v1")
+app.include_router(auth_router, prefix="/api/v1")
+app.include_router(admin_router, prefix="/api/v1")
 
 @app.get("/")
 def read_root():
@@ -104,7 +104,7 @@ async def websocket_endpoint(
         logger.error(f"WebSocket error for pharmacy {pharmacy_id}: {e}")
         manager.disconnect(websocket, pharmacy_id)
 
-@app.post("/alerts/broadcast")
+@app.post("/api/v1/alerts/broadcast")
 async def broadcast_alert(
     target_pharmacy_ids: List[str],
     message: dict,

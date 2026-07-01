@@ -1,10 +1,16 @@
 class ApiConfig {
   ApiConfig._();
 
-  static const String baseUrl = String.fromEnvironment(
+  static const String _rawBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://localhost:8000',
+    defaultValue: 'http://localhost:8000/api/v1',
   );
+
+  static String get baseUrl {
+    if (_rawBaseUrl.endsWith('/api/v1')) return _rawBaseUrl;
+    if (_rawBaseUrl.endsWith('/')) return '${_rawBaseUrl}api/v1';
+    return '$_rawBaseUrl/api/v1';
+  }
 
   static const String supabaseUrl = String.fromEnvironment(
     'SUPABASE_URL',

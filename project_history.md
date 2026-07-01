@@ -199,6 +199,96 @@ The backend is built as a REST and Real-Time WebSocket service managing pharmacy
 * **Created [seed_data.py](routing_engine/seed_data.py):**
   * Built an automated Python script utilizing the Supabase GoTrue Admin API to register 6 mock pharmacies and 1 administrator, verify emails, sync their profiles, populate 10 inventory items per node, and seed stock request outbreaks and notifications.
 
+### Milestone Q: Modular app/ Package Structure Refactoring
+* **Objective:** Modularize the backend by transitioning from a flat layout to a structured FastAPI application package (`app/`), and purge local build caches.
+* **Modifications in Directory Layout:**
+  * Grouped core code into [routing_engine/app/](file:///home/yusufsalyani/Projects/Pharmalink/routing_engine/app): `main.py`, `database.py`, `settings.py`, `models.py`, `schemas.py`, `crud.py`, `dependencies.py`, and `routers/`.
+  * Created package initializers `__init__.py` inside `app/` and `app/routers/` to register Python package boundaries.
+  * Recursively purged duplicate `__pycache__` and `.pytest_cache` folders.
+* **Modifications in Imports:**
+  * Updated all internal imports inside `app/` files to reference correct package paths using the `app.` namespace prefix.
+  * Configured import references in the CLI scripts (`seed_data.py` and `make_admin.py`) and the test suite modules (like `conftest.py` and `test_*.py`) to route through `app.`.
+* **Modifications in Container Config & Security:**
+  * Updated [docker-compose.yml](file:///home/yusufsalyani/Projects/Pharmalink) and [Dockerfile](file:///home/yusufsalyani/Projects/Pharmalink/routing_engine/Dockerfile) command keys to load `app.main:app` instead of the flat `main:app`.
+  * Set `allow_credentials=False` inside [main.py](file:///home/yusufsalyani/Projects/Pharmalink/routing_engine/app/main.py) CORS middleware to resolve the browser preflight security conflict between wildcard origins (`["*"]`) and credentials flag.
+
+### Milestone R: Route Standardization, Owner Dashboard, and Admin Portal APIs
+* **Objective:** Standardize all backend endpoints under the `/api/v1` namespace prefix, implement owner profile endpoints, and add missing owner dashboard & admin portal routes.
+* **Unified Namespace Standardizations:**
+  * Updated [main.py](file:///home/yusufsalyani/Projects/Pharmalink/routing_engine/app/main.py) to mount all routers under `/api/v1`.
+  * Moved the status sync endpoint to `/api/v1/pharmacies/sync-profile`.
+  * Updated system alerts broadcast to `/api/v1/alerts/broadcast`.
+  * Standardized the admin router base prefix in [admin.py](file:///home/yusufsalyani/Projects/Pharmalink/routing_engine/app/routers/admin.py) to `/admin`.
+* **Owner Profile and Dashboard APIs:**
+  * Implemented `GET` and `PUT` `/api/v1/pharmacies/me` in [auth.py](file:///home/yusufsalyani/Projects/Pharmalink/routing_engine/app/routers/auth.py) utilizing `get_current_user_uuid` to securely fetch and update profile data.
+  * Implemented `GET /api/v1/dashboard` in [api.py](file:///home/yusufsalyani/Projects/Pharmalink/routing_engine/app/routers/api.py) to consolidate active query counts, unread alerts, low stock indicators, and incoming alert histories.
+  * Implemented `GET /api/v1/requests` (fetching sent and received/alerted requests) and `GET /api/v1/alerts` (all inbox alerts).
+  * Implemented `PATCH /api/v1/requests/{request_id}/respond` allowing neighbors to ACCEPT/DECLINE alerts (creating transaction logs and changing parent request status on acceptance).
+* **Admin Portal Integrations:**
+  * Implemented `GET /api/v1/admin/transactions` providing joined system-wide transaction monitor history.
+  * Implemented `GET /api/v1/admin/logs` generating chronological registration and resolution audit logs.
+  * Implemented `GET /api/v1/admin/pharmacies/{pharmacy_id}` and `GET /api/v1/admin/pharmacies/{pharmacy_id}/inventory` to fetch specific node profiles and inventory data.
+  * Implemented `PATCH /api/v1/admin/pharmacies/{pharmacy_id}/onboarding` submitting approval review decisions.
+* **Test Verification Suites:**
+  * Created [test_dashboard_flow.py](file:///home/yusufsalyani/Projects/Pharmalink/routing_engine/tests/test_dashboard_flow.py) and [test_admin_portal.py](file:///home/yusufsalyani/Projects/Pharmalink/routing_engine/tests/test_admin_portal.py) validating the new logic. All 17 backend tests compile and execute cleanly in isolation.
+
+### Milestone S: Network Diagnostic Logging Interceptor
+* **Objective:** Inject a diagnostic HTTP logging interceptor into the Flutter API client to trace requests and responses on the console during demonstrations.
+* **Modifications in Network Layers:**
+  * Created [logging_interceptor.dart](file:///home/yusufsalyani/Projects/Pharmalink/flutter_app/lib/core/network/logging_interceptor.dart) to output target HTTP Method/URL, confirm Authorization header attachment, and print raw JSON response payloads.
+  * Added the logging interceptor to the global Dio instance in [auth_interceptor.dart](file:///home/yusufsalyani/Projects/Pharmalink/flutter_app/lib/core/network/auth_interceptor.dart).
+  * Added the logging interceptor to the custom Dio instance in [app_dio.dart](file:///home/yusufsalyani/Projects/Pharmalink/flutter_app/lib/services/app_dio.dart).
+
+### Milestone T: Harden Two-Phase Registration Flow & Self-Healing Auth Recovery
+* **Objective:** Secure the pharmacy registration flow by preventing race conditions and implementing self-healing catch recovery for orphaned accounts in Supabase Auth when FastAPI profile synchronization fails.
+* **Modifications in [auth_service.dart](flutter_app/lib/services/auth_service.dart):**
+  * Created `syncProfile` closure helper to guarantee sequential async/await execution.
+  * Implemented try/catch self-healing sign-in retry logic: if `supabase.auth.signUp()` fails because the user is already registered (orphaned account from a previously failed profile sync), the client silently signs in via `supabase.auth.signInWithPassword()` using the provided credentials and attempts the sync step again.
+  * Added graceful sign-out logic on sync profile failure to clear client session.
+
+### Milestone U: Spatial Broadcast Flow & Web Compatibility Stabilization
+* **Objective:** Repair browser-based WebSocket connection crashes, ensure a non-interactive submitting state during spatial requests transit, and implement missing backend request retrieval endpoints to populate UI validation screens.
+* **Modifications in Network & Auth Layers:**
+  * Updated [realtime_alert_service.dart](file:///home/yusufsalyani/Projects/Pharmalink/flutter_app/lib/services/realtime_alert_service.dart) to replace direct VM-specific `IOWebSocketChannel` with the unified, browser-compatible `WebSocketChannel`.
+  * Updated [auth_service.dart](file:///home/yusufsalyani/Projects/Pharmalink/flutter_app/lib/services/auth_service.dart) to disconnect the WebSocket on logout.
+* **Modifications in UI Widgets & Pages:**
+  * Added `enabled` flag to [app_text_field.dart](file:///home/yusufsalyani/Projects/Pharmalink/flutter_app/lib/widgets/app_text_field.dart) to disable focus and typing.
+  * Hardened [drug_query_page.dart](file:///home/yusufsalyani/Projects/Pharmalink/flutter_app/lib/pages/drug_query_page.dart) to disable text inputs, search radius selectors, and the cancel button while a query is in transit.
+* **Modifications in Backend Endpoints:**
+  * Implemented `get_last_sent_request` and `get_last_accepted_request` in [crud.py](file:///home/yusufsalyani/Projects/Pharmalink/routing_engine/app/crud.py).
+  * Registered `GET /api/v1/requests/sent/current` and `GET /api/v1/requests/accepted/current` in [routers/api.py](file:///home/yusufsalyani/Projects/Pharmalink/routing_engine/app/routers/api.py) to resolve the client's `404 Not Found` request details checks.
+
+### Milestone V: Inbox Decision Flow & Network Layer Hardening
+* **Objective:** Wire up the static "Accept" and "Decline" buttons in the incoming requests UI to securely execute backend calls with proper loading states and error boundaries.
+* **Modifications in UI Widgets & Pages:**
+  * Refactored `RequestsPage` to a `StatefulWidget` to maintain local `_inFlightRequestId` tracking for duplicate submission prevention.
+  * Embedded a `ScaffoldMessenger` SnackBar fallback for network timeouts natively without crashing.
+* **Modifications in Network Layers:**
+  * Wired `_handleDecision` method directly to `NetworkDataService.respondToIncomingRequest()`.
+  * UI is locked to only navigate to the confirmation screen (`/requests/accepted`) upon an HTTP 200 backend success response confirming the PostGIS update.
+
+### Milestone W: Stock Inventory CRUD Interface & Backend Deletion Endpoint
+* **Objective:** Scaffold a complete UI for pharmacy owners to view, incrementally update, add, and securely delete their inventory.
+* **Modifications in Backend Endpoints:**
+  * Injected `delete_inventory_item` helper into `crud.py`.
+  * Mounted strict ownership-validated `DELETE /api/v1/inventory/{item_id}` endpoint in `api.py`.
+* **Modifications in Network Layers:**
+  * Scaffolded low-level `_deleteMap` HTTP wrapper inside `network_data_service.dart`.
+  * Connected all four inventory methods (`getMyInventory`, `addInventoryItem`, `updateInventoryQuantity`, `deleteInventoryItem`) inside the global Flutter API client.
+* **Modifications in UI Widgets & Pages:**
+  * Created `ManageInventoryPage` featuring a split-pane layout matching design tokens (`AppTextField` and `AppButton`).
+  * Engineered optimistic UI updates on the `+` and `-` quantity adjusters to instantly reflect state while the `PATCH` completes asynchronously.
+  * Embedded `AppRouter` navigation hooks inside the Owner Dashboard to link directly to `/inventory`.
+
+### Milestone X: RBAC Login Routing & Incoming Feed Data Isolation
+* **Objective:** Ensure the login portal routes users intelligently according to their system role, and filter out self-created queries from populating a pharmacy's incoming alert inbox.
+* **Modifications in Authentication Flow:**
+  * Intercepted `context.go()` routing within `login_page.dart`.
+  * Integrated the `AuthService.isAdmin` boolean flag to dynamically direct System Administrators to the `/admin` portal while funneling owners to the standard `/dashboard`.
+* **Modifications in Network Layers:**
+  * Imported the `AuthService` singleton into `NetworkDataService`.
+  * Intercepted `getIncomingRequestModels()` to apply a strict client-side `.where()` filter that strips out any `StockRequest` objects where the `pharmacyId` equals the authenticated user's ID (`AuthService.currentUser['id']`).
+
 ---
 
 ## 3. Active Verification Setup
@@ -233,6 +323,17 @@ To run the admin outbreak detection analytics test suite:
 ```bash
 PYTHONPATH=routing_engine routing_engine/venv/bin/pytest routing_engine/tests/test_admin_analytics.py -v
 ```
+
+To run the owner dashboard flow test suite:
+```bash
+PYTHONPATH=routing_engine routing_engine/venv/bin/pytest routing_engine/tests/test_dashboard_flow.py -v
+```
+
+To run the admin portal details and review test suite:
+```bash
+PYTHONPATH=routing_engine routing_engine/venv/bin/pytest routing_engine/tests/test_admin_portal.py -v
+```
+
 
 ### Database Seeding Tool
 To register mock auth users and seed database profiles, stock inventory records, and outbreaks:

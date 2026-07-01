@@ -1,6 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
-from main import app, manager
+from app.main import app, manager
 
 client = TestClient(app)
 
@@ -40,7 +40,7 @@ def test_websocket_broadcast_alert():
             "message": test_msg
         }
         
-        response = client.post("/alerts/broadcast", json=payload, headers=headers)
+        response = client.post("/api/v1/alerts/broadcast", json=payload, headers=headers)
         assert response.status_code == 200
         
         data = response.json()

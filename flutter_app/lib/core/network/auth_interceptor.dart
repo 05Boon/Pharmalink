@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'logging_interceptor.dart';
 
 class AuthInterceptor extends Interceptor {
   @override
@@ -13,4 +14,5 @@ class AuthInterceptor extends Interceptor {
 }
 
 // Global configured Dio client
-final dio = Dio()..interceptors.add(AuthInterceptor());
+final dio = Dio()..interceptors.addAll([AuthInterceptor(), LoggingInterceptor()]);
+

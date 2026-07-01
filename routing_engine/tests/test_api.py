@@ -5,9 +5,9 @@ from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 
-from database import get_db
-from models import PharmacyNode, InventoryItem, StockRequest, AlertNotification
-from main import app, manager
+from app.database import get_db
+from app.models import PharmacyNode, InventoryItem, StockRequest, AlertNotification
+from app.main import app, manager
 
 client = TestClient(app)
 
@@ -16,19 +16,19 @@ client = TestClient(app)
 async def test_unauthenticated_api_endpoints():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         # 1. GET /inventory -> 401 Unauthorized
-        resp = await ac.get("/inventory")
+        resp = await ac.get("/api/v1/inventory")
         assert resp.status_code == 401
         
         # 2. POST /inventory -> 401 Unauthorized
-        resp = await ac.post("/inventory", json={"drug_name": "Aspirin", "stock_quantity": 10})
+        resp = await ac.post("/api/v1/inventory", json={"drug_name": "Aspirin", "stock_quantity": 10})
         assert resp.status_code == 401
         
         # 3. PATCH /inventory/some-id -> 401 Unauthorized
-        resp = await ac.patch("/inventory/some-id", json={"stock_quantity": 20})
+        resp = await ac.patch("/api/v1/inventory/some-id", json={"stock_quantity": 20})
         assert resp.status_code == 401
         
         # 4. POST /broadcasts/request -> 401 Unauthorized
-        resp = await ac.post("/broadcasts/request", json={"requested_drug": "Aspirin", "required_quantity": 5})
+        resp = await ac.post("/api/v1/broadcasts/request", json={"requested_drug": "Aspirin", "required_quantity": 5})
         assert resp.status_code == 401
 
 
@@ -65,7 +65,7 @@ async def test_inventory_crud_and_ownership(db_session: AsyncSession):
         # 2. Add inventory item for Pharmacy 1 using POST
         headers_p1 = {"Authorization": "Bearer mock-api-node-1"}
         resp = await ac.post(
-            "/inventory",
+            "/api/v1/inventory",
             json={"drug_name": "Paracetamol 500mg", "stock_quantity": 50, "drug_category": "Analgesics"},
             headers=headers_p1
         )
@@ -79,7 +79,7 @@ async def test_inventory_crud_and_ownership(db_session: AsyncSession):
         # 3. Attempt to update Pharmacy 1's item using Pharmacy 2 credentials (PATCH) -> 403 Forbidden
         headers_p2 = {"Authorization": "Bearer mock-api-node-2"}
         resp = await ac.patch(
-            f"/inventory/{item_id}",
+            f"/api/v1/inventory/{item_id}",
             json={"stock_quantity": 100},
             headers=headers_p2
         )
@@ -88,7 +88,7 @@ async def test_inventory_crud_and_ownership(db_session: AsyncSession):
 
         # 4. Successfully update stock level using Pharmacy 1 credentials (PATCH) -> 200 OK
         resp = await ac.patch(
-            f"/inventory/{item_id}",
+            f"/api/v1/inventory/{item_id}",
             json={"stock_quantity": 100},
             headers=headers_p1
         )
@@ -96,7 +96,7 @@ async def test_inventory_crud_and_ownership(db_session: AsyncSession):
         assert resp.json()["stock_quantity"] == 100
 
         # 5. Fetch inventory items for Pharmacy 1 (GET)
-        resp = await ac.get("/inventory", headers=headers_p1)
+        resp = await ac.get("/api/v1/inventory", headers=headers_p1)
         assert resp.status_code == 200
         items = resp.json()
         assert len(items) == 1
@@ -155,7 +155,7 @@ async def test_spatial_routing_and_websocket_broadcast(db_session: AsyncSession)
                 "search_radius_meters": 1500
             }
             
-            resp = await ac.post("/broadcasts/request", json=payload, headers=headers)
+            resp = await ac.post("/api/v1/broadcasts/request", json=payload, headers=headers)
             assert resp.status_code == 201
             
             request_resp = resp.json()

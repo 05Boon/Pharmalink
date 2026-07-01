@@ -1,5 +1,5 @@
 import '../core/network/auth_interceptor.dart';
-import '../models/inventory_item_model.dart';
+import '../models/inventory_item.dart';
 
 class InventoryItemService {
   final String baseUrl;

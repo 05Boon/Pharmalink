@@ -3,8 +3,76 @@ import 'package:go_router/go_router.dart';
 import '../widgets/app_nav.dart';
 import '../services/network_data_service.dart';
 
-class RequestsPage extends StatelessWidget {
+class RequestsPage extends StatefulWidget {
   const RequestsPage({super.key});
+
+  @override
+  State<RequestsPage> createState() => _RequestsPageState();
+}
+
+class _RequestsPageState extends State<RequestsPage> {
+  late Future<List<Map<String, dynamic>>> _requestsFuture;
+  String? _inFlightRequestId;
+
+  @override
+  void initState() {
+    super.initState();
+    _requestsFuture = NetworkDataService.getIncomingRequests();
+  }
+
+  Future<void> _handleDecision(
+    Map<String, dynamic> request,
+    bool accepted,
+  ) async {
+    final requestId = '${request['request_id'] ?? request['id'] ?? ''}'.trim();
+    if (requestId.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Request ID is missing.')),
+      );
+      return;
+    }
+
+    setState(() {
+      _inFlightRequestId = requestId;
+    });
+
+    try {
+      await NetworkDataService.respondToIncomingRequest(
+        requestId: requestId,
+        accepted: accepted,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(accepted
+              ? 'Request accepted and saved.'
+              : 'Request declined and saved.'),
+        ),
+      );
+
+      if (accepted) {
+        context.go('/requests/accepted');
+        return;
+      }
+
+      setState(() {
+        _requestsFuture = NetworkDataService.getIncomingRequests();
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not save decision. Try again.')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _inFlightRequestId = null;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -17,7 +85,7 @@ class RequestsPage extends StatelessWidget {
           ]),
           Expanded(
             child: FutureBuilder<List<Map<String, dynamic>>>(
-              future: NetworkDataService.getIncomingRequests(),
+              future: _requestsFuture,
               builder: (context, snapshot) {
                 final requests =
                     snapshot.data ?? const <Map<String, dynamic>>[];
@@ -56,7 +124,7 @@ class RequestsPage extends StatelessWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'From: ${req['from'] ?? req['source'] ?? '-'}',
+                                      'From: ${req['pharmacy']?['business_name'] ?? req['pharmacy_id'] ?? '-'}',
                                       style: const TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w600,
@@ -65,7 +133,7 @@ class RequestsPage extends StatelessWidget {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      '${req['drug'] ?? req['drug_name'] ?? '-'} • ${req['qty'] ?? req['quantity'] ?? '-'}',
+                                      '${req['requested_drug'] ?? '-'} • ${req['required_quantity'] ?? '-'}',
                                       style: const TextStyle(
                                         fontSize: 10,
                                         color: Color(0xFF5F5E5A),
@@ -73,7 +141,7 @@ class RequestsPage extends StatelessWidget {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      '${req['time'] ?? req['created_at'] ?? '-'}',
+                                      '${req['created_at'] ?? '-'}',
                                       style: const TextStyle(
                                         fontSize: 10,
                                         color: Color(0xFF5F5E5A),
@@ -82,28 +150,46 @@ class RequestsPage extends StatelessWidget {
                                     const SizedBox(height: 8),
                                     Row(
                                       children: [
-                                        Expanded(
-                                          child: ElevatedButton(
-                                            onPressed: () => context
-                                                .go('/requests/accepted'),
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor:
-                                                  const Color(0xFF1D9E75),
-                                              foregroundColor:
-                                                  const Color(0xFF04342C),
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      vertical: 6),
-                                              textStyle:
-                                                  const TextStyle(fontSize: 10),
+                                        Builder(builder: (context) {
+                                          final requestId =
+                                              '${req['request_id'] ?? req['id'] ?? ''}';
+                                          final isWorking =
+                                              _inFlightRequestId == requestId;
+                                          return Expanded(
+                                            child: ElevatedButton(
+                                              onPressed: isWorking
+                                                  ? null
+                                                  : () => _handleDecision(
+                                                        req,
+                                                        true,
+                                                      ),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor:
+                                                    const Color(0xFF1D9E75),
+                                                foregroundColor:
+                                                    const Color(0xFF04342C),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        vertical: 6),
+                                                textStyle: const TextStyle(
+                                                    fontSize: 10),
+                                              ),
+                                              child: Text(isWorking
+                                                  ? 'Saving...'
+                                                  : 'Accept'),
                                             ),
-                                            child: const Text('Accept'),
-                                          ),
-                                        ),
+                                          );
+                                        }),
                                         const SizedBox(width: 8),
                                         Expanded(
                                           child: OutlinedButton(
-                                            onPressed: () {},
+                                            onPressed:
+                                                _inFlightRequestId != null
+                                                    ? null
+                                                    : () => _handleDecision(
+                                                          req,
+                                                          false,
+                                                        ),
                                             style: OutlinedButton.styleFrom(
                                               foregroundColor:
                                                   const Color(0xFF791F1F),

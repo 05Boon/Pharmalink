@@ -1,59 +1,43 @@
-class AlertNotification {
-  final String? alertId;
-  final String? requestId;
-  final String? pharmacyId;
-  final String status;
-  final String createdAt;
-  final Map<String, dynamic> raw;
+import 'stock_request.dart';
 
-  const AlertNotification({
+class AlertNotification {
+  final String alertId;
+  final String requestId;
+  final String receivingPharmacyId;
+  final String alertStatus;
+  final DateTime deliveredAt;
+  final StockRequest? request;
+
+  AlertNotification({
     required this.alertId,
     required this.requestId,
-    required this.pharmacyId,
-    required this.status,
-    required this.createdAt,
-    required this.raw,
+    required this.receivingPharmacyId,
+    required this.alertStatus,
+    required this.deliveredAt,
+    this.request,
   });
 
   factory AlertNotification.fromJson(Map<String, dynamic> json) {
     return AlertNotification(
-      alertId: _asNullableString(json['alert_id'] ?? json['id']),
-      requestId: _asNullableString(json['request_id']),
-      pharmacyId: _asNullableString(json['pharmacy_id']),
-      status: _asString(json['status'], fallback: '-'),
-      createdAt: _asString(json['created_at'] ?? json['time'], fallback: '-'),
-      raw: Map<String, dynamic>.from(json),
+      alertId: json['alert_id'] as String,
+      requestId: json['request_id'] as String,
+      receivingPharmacyId: json['receiving_pharmacy_id'] as String,
+      alertStatus: json['alert_status'] as String,
+      deliveredAt: DateTime.parse(json['delivered_at'] as String),
+      request: json['request'] != null
+          ? StockRequest.fromJson(json['request'] as Map<String, dynamic>)
+          : null,
     );
   }
 
   Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      ...raw,
+    return {
       'alert_id': alertId,
       'request_id': requestId,
-      'pharmacy_id': pharmacyId,
-      'status': status,
-      'created_at': createdAt,
+      'receiving_pharmacy_id': receivingPharmacyId,
+      'alert_status': alertStatus,
+      'delivered_at': deliveredAt.toIso8601String(),
+      if (request != null) 'request': request!.toJson(),
     };
-  }
-
-  static String _asString(dynamic value, {required String fallback}) {
-    if (value is String && value.trim().isNotEmpty) {
-      return value;
-    }
-    if (value != null) {
-      return '$value';
-    }
-    return fallback;
-  }
-
-  static String? _asNullableString(dynamic value) {
-    if (value is String && value.trim().isNotEmpty) {
-      return value;
-    }
-    if (value != null) {
-      return '$value';
-    }
-    return null;
   }
 }

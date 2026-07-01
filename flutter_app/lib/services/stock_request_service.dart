@@ -1,6 +1,6 @@
 import '../core/network/auth_interceptor.dart';
-import '../models/stock_request_model.dart';
-import '../models/alert_notification_model.dart';
+import '../models/stock_request.dart';
+import '../models/alert_notification.dart';
 
 class StockRequestService {
   final String baseUrl;

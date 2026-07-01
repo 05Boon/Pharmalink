@@ -1,11 +1,11 @@
 import pytest
 from httpx import AsyncClient, ASGITransport
 
-from database import get_db
-from models import PharmacyNode, StockRequest, AlertNotification
-import schemas
-import crud
-from main import app
+from app.database import get_db
+from app.models import PharmacyNode, StockRequest, AlertNotification
+from app import schemas
+from app import crud
+from app.main import app
 
 
 @pytest.mark.asyncio
@@ -88,7 +88,7 @@ async def test_retrieval_endpoints(db_session):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         # --- TEST 1: GET /broadcasts/active-requests (as Pharmacy A) ---
         response = await ac.get(
-            "/broadcasts/active-requests",
+            "/api/v1/broadcasts/active-requests",
             headers={"Authorization": "Bearer mock-pharmacy-a"}
         )
         assert response.status_code == 200
@@ -102,7 +102,7 @@ async def test_retrieval_endpoints(db_session):
         
         # --- TEST 2: GET /broadcasts/alerts/unread (as Pharmacy A) ---
         response = await ac.get(
-            "/broadcasts/alerts/unread",
+            "/api/v1/broadcasts/alerts/unread",
             headers={"Authorization": "Bearer mock-pharmacy-a"}
         )
         assert response.status_code == 200
@@ -126,7 +126,7 @@ async def test_retrieval_endpoints(db_session):
         
         # --- TEST 3: GET /broadcasts/alerts/unread (as Pharmacy B) ---
         response = await ac.get(
-            "/broadcasts/alerts/unread",
+            "/api/v1/broadcasts/alerts/unread",
             headers={"Authorization": "Bearer mock-pharmacy-b"}
         )
         assert response.status_code == 200

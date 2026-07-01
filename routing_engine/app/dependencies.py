@@ -1,12 +1,12 @@
 from fastapi import Header, HTTPException, status, Depends
 from typing import Optional
 from httpx import AsyncClient
-from settings import ALLOW_MOCK_AUTH, SUPABASE_ANON_KEY, SUPABASE_URL
+from app.settings import ALLOW_MOCK_AUTH, SUPABASE_ANON_KEY, SUPABASE_URL
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from database import get_db
-from models import SystemAdmin
+from app.database import get_db
+from app.models import SystemAdmin
 
 async def resolve_token(token: str) -> Optional[str]:
     """

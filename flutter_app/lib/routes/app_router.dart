@@ -16,6 +16,7 @@ import '../pages/approve_onboarding_page.dart';
 import '../pages/monitor_transactions_page.dart';
 import '../pages/reports_page.dart';
 import '../pages/audit_logs_page.dart';
+import '../pages/manage_inventory_page.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/register',
@@ -79,6 +80,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/history',
       builder: (context, state) => const TransactionHistoryPage(),
+    ),
+    GoRoute(
+      path: '/inventory',
+      builder: (context, state) => const ManageInventoryPage(),
     ),
     GoRoute(
       path: '/admin',

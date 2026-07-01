@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../config/api_config.dart';
+import '../core/network/logging_interceptor.dart';
 import 'auth_service.dart';
 
 class AppDio {
@@ -19,7 +20,7 @@ class AppDio {
       // Keep status validation in service layer for consistent error handling.
       validateStatus: (_) => true,
     ),
-  )..interceptors.add(
+  )..interceptors.addAll([
       InterceptorsWrapper(
         onRequest: (options, handler) {
           final token = AuthService.accessToken;
@@ -29,5 +30,7 @@ class AppDio {
           handler.next(options);
         },
       ),
-    );
+      LoggingInterceptor(),
+    ]);
 }
+

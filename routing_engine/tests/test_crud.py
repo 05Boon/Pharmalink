@@ -4,9 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.exc import MissingGreenlet
 
-from models import PharmacyNode, StockRequest, AlertNotification
-import schemas
-import crud
+from app.models import PharmacyNode, StockRequest, AlertNotification
+from app import schemas
+from app import crud
 
 
 @pytest.mark.asyncio

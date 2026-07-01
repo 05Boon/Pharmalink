@@ -59,7 +59,7 @@ class AcceptSharePage extends StatelessWidget {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'You have accepted the request from ${details['from'] ?? '-'} for ${details['drug'] ?? '-'}.',
+                            'You have accepted the request from ${details['pharmacy']?['business_name'] ?? details['pharmacy_id'] ?? '-'} for ${details['requested_drug'] ?? '-'}.',
                             textAlign: TextAlign.center,
                             style: const TextStyle(
                               fontSize: 10,

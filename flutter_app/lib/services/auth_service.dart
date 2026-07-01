@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/api_config.dart';
 import 'app_dio.dart';
+import 'realtime_alert_service.dart';
 
 class AuthService {
   static Map<String, dynamic>? _currentUser;
@@ -41,62 +42,18 @@ class AuthService {
     required double longitude,
   }) async {
     final supabase = Supabase.instance.client;
-    try {
-      // 1. Phase 1 - Supabase Auth Registration
-      final authResponse = await supabase.auth.signUp(
-        email: email,
-        password: password,
-        data: {'business_name': businessName},
-      );
-
-      final user = authResponse.user;
-      final session = authResponse.session;
-      if (user == null) {
-        return _failure(
-          code: 'REGISTER_FAILED',
-          message: 'User registration failed on auth provider.',
-        );
-      }
-
-      // Some Supabase projects require email confirmation and return no session
-      // on sign-up. Try a sign-in once; if still unavailable, stop before profile sync.
-      String? token = session?.accessToken ??
-          supabase.auth.currentSession?.accessToken;
-      if (token == null || token.isEmpty) {
-        try {
-          final signInResult = await supabase.auth.signInWithPassword(
-            email: email,
-            password: password,
-          );
-          token = signInResult.session?.accessToken ??
-              supabase.auth.currentSession?.accessToken;
-        } catch (_) {
-          return _failure(
-            code: 'EMAIL_CONFIRMATION_REQUIRED',
-            message:
-                'Account created. Please confirm your email, then login to complete profile setup.',
-          );
-        }
-      }
-
-      if (token == null || token.isEmpty) {
-        return _failure(
-          code: 'EMAIL_CONFIRMATION_REQUIRED',
-          message:
-              'Account created. Please confirm your email, then login to complete profile setup.',
-        );
-      }
-
-      // 2. Phase 2 - FastAPI Profile Synchronization
+    
+    // Helper closure to perform profile synchronization
+    Future<Map<String, dynamic>> syncProfile(String token) async {
       final headers = <String, String>{
         'Content-Type': 'application/json',
         'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
       };
-      headers['Authorization'] = 'Bearer $token';
 
       try {
         final response = await AppDio.instance.post(
-          '${ApiConfig.baseUrl}/api/pharmacies/sync-profile',
+          '${ApiConfig.baseUrl}/pharmacies/sync-profile',
           data: {
             'business_name': businessName,
             'license_number': licenseNumber,
@@ -112,9 +69,6 @@ class AuthService {
         );
 
         if (response.statusCode != 201) {
-          // Sync failed - rollback auth session
-          await supabase.auth.signOut();
-          
           final detail = response.data is Map && response.data.containsKey('detail')
               ? response.data['detail']
               : 'Profile synchronization failed with status code ${response.statusCode}.';
@@ -125,7 +79,6 @@ class AuthService {
           );
         }
 
-        // Success - store local current user profile representation
         final responseData = response.data as Map<String, dynamic>;
         _currentUser = responseData;
         
@@ -135,17 +88,109 @@ class AuthService {
           'message': 'Registration and profile sync completed successfully.',
         };
       } catch (e) {
-        // Network/parsing exception during sync - rollback auth session
-        await supabase.auth.signOut();
         return _failure(
           code: 'SYNC_FAILED',
           message: 'Profile synchronization failed: ${e.toString()}',
         );
       }
+    }
+
+    try {
+      // 1. Phase 1 - Supabase Auth Registration
+      AuthResponse authResponse;
+      try {
+        authResponse = await supabase.auth.signUp(
+          email: email,
+          password: password,
+          data: {'business_name': businessName},
+        );
+      } catch (signupError) {
+        final errorStr = signupError.toString().toLowerCase();
+        // Self-heal orphaned Supabase account by silently signing in
+        if (errorStr.contains('already registered') || errorStr.contains('already exists')) {
+          try {
+            final signInResult = await supabase.auth.signInWithPassword(
+              email: email,
+              password: password,
+            );
+            final token = signInResult.session?.accessToken ??
+                supabase.auth.currentSession?.accessToken;
+            if (token != null && token.isNotEmpty) {
+              final syncResult = await syncProfile(token);
+              if (syncResult['ok'] == true) {
+                return syncResult;
+              } else {
+                await supabase.auth.signOut();
+                return _failure(
+                  code: 'ORPHANED_SYNC_FAILED',
+                  message: 'Account exists but profile sync failed. Please try again to retry: ${syncResult['error']['message']}',
+                );
+              }
+            }
+          } catch (signinError) {
+            return _failure(
+              code: 'REGISTER_FAILED',
+              message: 'Account already exists. Incorrect password or credentials: ${signinError.toString()}',
+            );
+          }
+        }
+        
+        return _failure(
+          code: 'REGISTER_FAILED',
+          message: 'Auth registration failed: ${signupError.toString()}',
+        );
+      }
+
+      final user = authResponse.user;
+      final session = authResponse.session;
+      if (user == null) {
+        return _failure(
+          code: 'REGISTER_FAILED',
+          message: 'User registration failed on auth provider.',
+        );
+      }
+
+      String? token = session?.accessToken ??
+          supabase.auth.currentSession?.accessToken;
+          
+      if (token == null || token.isEmpty) {
+        try {
+          final signInResult = await supabase.auth.signInWithPassword(
+            email: email,
+            password: password,
+          );
+          token = signInResult.session?.accessToken ??
+              supabase.auth.currentSession?.accessToken;
+        } catch (_) {
+          return _failure(
+            code: 'EMAIL_CONFIRMATION_REQUIRED',
+            message: 'Account created. Please confirm your email, then login to complete profile setup.',
+          );
+        }
+      }
+
+      if (token == null || token.isEmpty) {
+        return _failure(
+          code: 'EMAIL_CONFIRMATION_REQUIRED',
+          message: 'Account created. Please confirm your email, then login to complete profile setup.',
+        );
+      }
+
+      // 2. Phase 2 - FastAPI Profile Synchronization
+      final syncResult = await syncProfile(token);
+      if (syncResult['ok'] == true) {
+        return syncResult;
+      } else {
+        await supabase.auth.signOut();
+        return _failure(
+          code: 'ORPHANED_SYNC_FAILED',
+          message: 'Supabase signup succeeded, but profile sync failed. Please click register again to retry: ${syncResult['error']['message']}',
+        );
+      }
     } catch (e) {
       return _failure(
         code: 'REGISTER_FAILED',
-        message: 'Auth registration failed: ${e.toString()}',
+        message: 'Registration failed: ${e.toString()}',
       );
     }
   }
@@ -199,6 +244,7 @@ class AuthService {
   static Future<Map<String, dynamic>> logout() async {
     try {
       await Supabase.instance.client.auth.signOut();
+      await RealtimeAlertService.instance.disconnect();
       _currentUser = null;
       return {'ok': true, 'message': 'Logged out successfully.'};
     } catch (e) {
