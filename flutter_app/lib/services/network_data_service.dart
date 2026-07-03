@@ -14,6 +14,29 @@ class NetworkDataService {
 
   static final Dio _dio = AppDio.instance;
 
+  static bool _isOpenRequestStatus(String status) {
+    final normalized = status.trim().toUpperCase();
+    if (normalized.isEmpty) return true;
+    return normalized != 'FULFILLED' &&
+        normalized != 'ACCEPTED' &&
+        normalized != 'DECLINED' &&
+        normalized != 'CLOSED';
+  }
+
+  static String? _currentPharmacyId() {
+    final cachedId = '${AuthService.currentUser?['id'] ?? ''}'.trim();
+    if (cachedId.isNotEmpty) {
+      return cachedId;
+    }
+
+    final sessionId = '${AuthService.getMe()?['id'] ?? ''}'.trim();
+    if (sessionId.isNotEmpty) {
+      return sessionId;
+    }
+
+    return null;
+  }
+
   static dynamic _decodeBody(String body) {
     if (body.trim().isEmpty) return null;
     try {
@@ -239,12 +262,18 @@ class NetworkDataService {
   }
 
   static Future<List<StockRequest>> getIncomingRequestModels() async {
-    final allRequests = await _getModelList(ApiConfig.requestsUrl, StockRequest.fromJson);
-    final currentUserId = AuthService.currentUser?['id'];
-    if (currentUserId != null) {
-      return allRequests.where((r) => r.pharmacyId != currentUserId).toList();
-    }
-    return allRequests;
+    final allRequests =
+        await _getModelList(ApiConfig.requestsUrl, StockRequest.fromJson);
+    final currentUserId = _currentPharmacyId();
+    return allRequests.where((request) {
+      if (!_isOpenRequestStatus(request.requestStatus)) {
+        return false;
+      }
+      if (currentUserId == null) {
+        return true;
+      }
+      return request.pharmacyId != currentUserId;
+    }).toList();
   }
 
   static Future<StockRequest> getSentRequestModel() async {
@@ -274,14 +303,15 @@ class NetworkDataService {
     return _getList('${ApiConfig.baseUrl}/inventory');
   }
 
-  static Future<Map<String, dynamic>> addInventoryItem(Map<String, dynamic> data) async {
+  static Future<Map<String, dynamic>> addInventoryItem(
+      Map<String, dynamic> data) async {
     return _postMap('${ApiConfig.baseUrl}/inventory', data);
   }
 
-  static Future<Map<String, dynamic>> updateInventoryQuantity(String itemId, int quantity) async {
-    return _patchMap('${ApiConfig.baseUrl}/inventory/$itemId', {
-      'stock_quantity': quantity
-    });
+  static Future<Map<String, dynamic>> updateInventoryQuantity(
+      String itemId, int quantity) async {
+    return _patchMap(
+        '${ApiConfig.baseUrl}/inventory/$itemId', {'stock_quantity': quantity});
   }
 
   static Future<void> deleteInventoryItem(String itemId) async {
@@ -305,8 +335,21 @@ class NetworkDataService {
   }
 
   static Future<List<Map<String, dynamic>>> getIncomingRequests() async {
-    final requests = await getIncomingRequestModels();
-    return requests.map((request) => request.toJson()).toList();
+    final requests = await _getList(ApiConfig.requestsUrl);
+    final currentUserId = _currentPharmacyId();
+    return requests.where((request) {
+      final status = '${request['request_status'] ?? ''}';
+      if (!_isOpenRequestStatus(status)) {
+        return false;
+      }
+
+      if (currentUserId == null) {
+        return true;
+      }
+
+      final pharmacyId = '${request['pharmacy_id'] ?? ''}';
+      return pharmacyId != currentUserId;
+    }).toList();
   }
 
   static Future<List<Map<String, dynamic>>> getTransactionHistory() async {
@@ -314,8 +357,11 @@ class NetworkDataService {
   }
 
   static Future<Map<String, dynamic>> getSentRequestDetails() async {
-    final request = await getSentRequestModel();
-    return request.toJson();
+    return _getMap('${ApiConfig.requestsUrl}/sent/current');
+  }
+
+  static Future<List<Map<String, dynamic>>> getSentRequestsDetails() async {
+    return _getList('${ApiConfig.requestsUrl}/sent');
   }
 
   static Future<Map<String, dynamic>> getAcceptedRequestDetails() async {

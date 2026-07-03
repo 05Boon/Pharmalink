@@ -18,6 +18,17 @@ class AlertNotificationResponse(AlertNotificationBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+# Lightweight pharmacy summary, reused wherever a request/alert needs to show
+# who the requesting pharmacy is without pulling in the full profile payload.
+class PharmacyBasicInfo(BaseModel):
+    pharmacy_id: str
+    business_name: str
+    email: str
+    phone_number: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # StockRequest schemas
 class StockRequestBase(BaseModel):
     requested_drug: str = Field(..., min_length=1, description="Name of the requested drug")
@@ -33,6 +44,15 @@ class StockRequestResponse(StockRequestBase):
     request_status: str = Field(..., description="Current status of the request (e.g. PENDING, FULFILLED)")
     created_at: datetime = Field(..., description="Timestamp when the request was created")
     alerts: List[AlertNotificationResponse] = Field([], description="List of alert notifications sent to neighbors")
+    pharmacy: Optional[PharmacyBasicInfo] = Field(
+        None, description="Summary of the requesting pharmacy (name/contact info)"
+    )
+    accepted_by_pharmacy: Optional[PharmacyBasicInfo] = Field(
+        None, description="Summary of the pharmacy that accepted the request"
+    )
+    accepted_at: Optional[datetime] = Field(
+        None, description="Timestamp when the request was accepted"
+    )
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -83,15 +103,6 @@ class PharmacyNodeResponse(BaseModel):
     longitude: float
     account_status: str
     created_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class PharmacyBasicInfo(BaseModel):
-    pharmacy_id: str
-    business_name: str
-    email: str
-    phone_number: str
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -190,10 +201,3 @@ class AdminAuditLogResponse(BaseModel):
     created_at: datetime = Field(..., alias="time")
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
-
-
-
-
-
-
-

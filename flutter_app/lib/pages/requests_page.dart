@@ -14,6 +14,15 @@ class _RequestsPageState extends State<RequestsPage> {
   late Future<List<Map<String, dynamic>>> _requestsFuture;
   String? _inFlightRequestId;
 
+  bool _isOpenRequest(Map<String, dynamic> req) {
+    final status = '${req['request_status'] ?? ''}'.trim().toUpperCase();
+    if (status.isEmpty) return true;
+    return status != 'FULFILLED' &&
+        status != 'ACCEPTED' &&
+        status != 'DECLINED' &&
+        status != 'CLOSED';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -88,7 +97,9 @@ class _RequestsPageState extends State<RequestsPage> {
               future: _requestsFuture,
               builder: (context, snapshot) {
                 final requests =
-                    snapshot.data ?? const <Map<String, dynamic>>[];
+                    (snapshot.data ?? const <Map<String, dynamic>>[])
+                        .where(_isOpenRequest)
+                        .toList();
                 return SingleChildScrollView(
                   padding: const EdgeInsets.all(14),
                   child: Container(

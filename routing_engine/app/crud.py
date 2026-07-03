@@ -31,7 +31,7 @@ async def get_stock_request(db: AsyncSession, request_id: str) -> Optional[Stock
     stmt = (
         select(StockRequest)
         .where(StockRequest.request_id == request_id)
-        .options(selectinload(StockRequest.alerts))
+        .options(selectinload(StockRequest.alerts), selectinload(StockRequest.pharmacy))
     )
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
@@ -93,7 +93,13 @@ async def find_neighboring_pharmacies(
     Finds neighboring pharmacy nodes within a given search radius (in meters)
     that hold a sufficient quantity of a specified drug.
     Uses PostGIS ST_DWithin function over geography cast of SRID 4326.
+
+    Drug name matching is case-insensitive and partial (same semantics as
+    search_drugs) so that a request for "panadol" correctly matches an
+    inventory row stored as "Panadol Extra 500mg", instead of silently
+    finding zero neighbors on an exact-match miss.
     """
+    normalized_drug_name = drug_name.strip().lower()
     stmt = (
         select(PharmacyNode)
         .join(InventoryItem, PharmacyNode.pharmacy_id == InventoryItem.pharmacy_id)
@@ -104,12 +110,55 @@ async def find_neighboring_pharmacies(
                 radius_meters
             )
         )
-        .where(InventoryItem.drug_name == drug_name)
+        .where(func.lower(InventoryItem.drug_name).like(f"%{normalized_drug_name}%"))
         .where(InventoryItem.stock_quantity >= required_quantity)
         .distinct()
     )
     result = await db.execute(stmt)
     return list(result.scalars().all())
+
+
+async def search_drugs(
+    db: AsyncSession,
+    query: str,
+    exclude_pharmacy_id: Optional[str] = None,
+    limit: int = 50,
+) -> List[dict]:
+    """
+    Searches inventory by partial drug name and returns display-ready rows
+    for the client search results page.
+    """
+    normalized_query = query.strip()
+    if not normalized_query:
+        return []
+
+    stmt = (
+        select(InventoryItem, PharmacyNode.business_name)
+        .join(PharmacyNode, PharmacyNode.pharmacy_id == InventoryItem.pharmacy_id)
+        .where(func.lower(InventoryItem.drug_name).like(f"%{normalized_query.lower()}%"))
+        .order_by(InventoryItem.stock_quantity.desc(), InventoryItem.drug_name.asc())
+        .limit(limit)
+    )
+
+    if exclude_pharmacy_id:
+        stmt = stmt.where(InventoryItem.pharmacy_id != exclude_pharmacy_id)
+
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    return [
+        {
+            "pharmacy": business_name,
+            "name": business_name,
+            "pharmacy_id": item.pharmacy_id,
+            "drug_name": item.drug_name,
+            "stock": item.stock_quantity,
+            "quantity": item.stock_quantity,
+            "distance": "-",
+            "price": "-",
+        }
+        for item, business_name in rows
+    ]
 
 async def get_inventory_items(db: AsyncSession, pharmacy_id: str) -> List[InventoryItem]:
     """
@@ -245,7 +294,7 @@ async def get_active_stock_requests(db: AsyncSession, pharmacy_id: str) -> List[
         select(StockRequest)
         .where(StockRequest.pharmacy_id == pharmacy_id)
         .where(StockRequest.request_status == "PENDING")
-        .options(selectinload(StockRequest.alerts))
+        .options(selectinload(StockRequest.alerts), selectinload(StockRequest.pharmacy))
     )
     result = await db.execute(stmt)
     return list(result.scalars().all())
@@ -352,7 +401,7 @@ async def get_user_relevant_requests(db: AsyncSession, pharmacy_id: str) -> List
             (StockRequest.pharmacy_id == pharmacy_id) |
             (AlertNotification.receiving_pharmacy_id == pharmacy_id)
         )
-        .options(selectinload(StockRequest.alerts))
+        .options(selectinload(StockRequest.alerts), selectinload(StockRequest.pharmacy))
         .distinct()
     )
     result = await db.execute(stmt)
@@ -403,7 +452,7 @@ async def respond_to_stock_request(
     req_stmt = (
         select(StockRequest)
         .where(StockRequest.request_id == request_id)
-        .options(selectinload(StockRequest.alerts))
+        .options(selectinload(StockRequest.alerts), selectinload(StockRequest.pharmacy))
     )
     req_result = await db.execute(req_stmt)
     db_request = req_result.scalar_one_or_none()
@@ -425,7 +474,7 @@ async def respond_to_stock_request(
         refetch_stmt = (
             select(StockRequest)
             .where(StockRequest.request_id == request_id)
-            .options(selectinload(StockRequest.alerts))
+            .options(selectinload(StockRequest.alerts), selectinload(StockRequest.pharmacy))
         )
         refetch_result = await db.execute(refetch_stmt)
         db_request = refetch_result.scalar_one_or_none()
@@ -441,11 +490,148 @@ async def get_last_sent_request(db: AsyncSession, pharmacy_id: str) -> Optional[
         select(StockRequest)
         .where(StockRequest.pharmacy_id == pharmacy_id)
         .order_by(StockRequest.created_at.desc())
-        .options(selectinload(StockRequest.pharmacy))
+        .options(selectinload(StockRequest.pharmacy), selectinload(StockRequest.alerts))
         .limit(1)
     )
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
+
+
+def _serialize_request_with_responder(
+    request: StockRequest,
+    accepted_by_pharmacy: dict | None,
+    accepted_at,
+) -> dict:
+    return {
+        "request_id": request.request_id,
+        "pharmacy_id": request.pharmacy_id,
+        "requested_drug": request.requested_drug,
+        "required_quantity": request.required_quantity,
+        "search_radius_meters": request.search_radius_meters,
+        "request_status": request.request_status,
+        "created_at": request.created_at,
+        "alerts": [
+            {
+                "alert_id": alert.alert_id,
+                "request_id": alert.request_id,
+                "receiving_pharmacy_id": alert.receiving_pharmacy_id,
+                "alert_status": alert.alert_status,
+                "delivered_at": alert.delivered_at,
+            }
+            for alert in request.alerts
+        ],
+        "pharmacy": {
+            "pharmacy_id": request.pharmacy.pharmacy_id,
+            "business_name": request.pharmacy.business_name,
+            "email": request.pharmacy.email,
+            "phone_number": request.pharmacy.phone_number,
+        }
+        if request.pharmacy
+        else None,
+        "accepted_by_pharmacy": accepted_by_pharmacy,
+        "accepted_at": accepted_at,
+    }
+
+
+async def get_last_sent_request_with_responder(
+    db: AsyncSession,
+    pharmacy_id: str,
+) -> Optional[dict]:
+    """
+    Retrieves the most recent sent request and enriches it with the accepting
+    pharmacy details when available.
+    """
+    request = await get_last_sent_request(db, pharmacy_id)
+    if not request:
+        return None
+
+    accepted_stmt = (
+        select(AlertNotification, PharmacyNode)
+        .join(
+            PharmacyNode,
+            PharmacyNode.pharmacy_id == AlertNotification.receiving_pharmacy_id,
+        )
+        .where(AlertNotification.request_id == request.request_id)
+        .where(AlertNotification.alert_status == "ACCEPTED")
+        .order_by(AlertNotification.delivered_at.desc())
+        .limit(1)
+    )
+    accepted_result = await db.execute(accepted_stmt)
+    accepted_row = accepted_result.first()
+
+    accepted_by_pharmacy = None
+    accepted_at = None
+    if accepted_row:
+        accepted_alert, responder = accepted_row
+        accepted_by_pharmacy = {
+            "pharmacy_id": responder.pharmacy_id,
+            "business_name": responder.business_name,
+            "email": responder.email,
+            "phone_number": responder.phone_number,
+        }
+        accepted_at = accepted_alert.delivered_at
+
+    return _serialize_request_with_responder(
+        request,
+        accepted_by_pharmacy,
+        accepted_at,
+    )
+
+
+async def get_sent_requests_with_responder(
+    db: AsyncSession,
+    pharmacy_id: str,
+) -> List[dict]:
+    """
+    Retrieves all sent requests and enriches each with accepting pharmacy details
+    when available.
+    """
+    stmt = (
+        select(StockRequest)
+        .where(StockRequest.pharmacy_id == pharmacy_id)
+        .order_by(StockRequest.created_at.desc())
+        .options(selectinload(StockRequest.pharmacy), selectinload(StockRequest.alerts))
+    )
+    result = await db.execute(stmt)
+    requests = list(result.scalars().all())
+
+    sent_requests = []
+    for request in requests:
+        accepted_stmt = (
+            select(AlertNotification, PharmacyNode)
+            .join(
+                PharmacyNode,
+                PharmacyNode.pharmacy_id == AlertNotification.receiving_pharmacy_id,
+            )
+            .where(AlertNotification.request_id == request.request_id)
+            .where(AlertNotification.alert_status == "ACCEPTED")
+            .order_by(AlertNotification.delivered_at.desc())
+            .limit(1)
+        )
+        accepted_result = await db.execute(accepted_stmt)
+        accepted_row = accepted_result.first()
+
+        accepted_by_pharmacy = None
+        accepted_at = None
+        if accepted_row:
+            accepted_alert, responder = accepted_row
+            accepted_by_pharmacy = {
+                "pharmacy_id": responder.pharmacy_id,
+                "business_name": responder.business_name,
+                "email": responder.email,
+                "phone_number": responder.phone_number,
+            }
+            accepted_at = accepted_alert.delivered_at
+
+        sent_requests.append(
+            _serialize_request_with_responder(
+                request,
+                accepted_by_pharmacy,
+                accepted_at,
+            )
+        )
+
+    return sent_requests
 
 
 async def get_last_accepted_request(db: AsyncSession, pharmacy_id: str) -> Optional[StockRequest]:
@@ -558,6 +744,72 @@ async def get_dashboard_metrics(db: AsyncSession, pharmacy_id: str) -> dict:
     }
 
 
+async def get_user_transaction_history(db: AsyncSession, pharmacy_id: str) -> List[dict]:
+    """
+    Retrieves transactions relevant to a pharmacy (as requester or accepted responder).
+    """
+    from sqlalchemy.orm import aliased
+
+    RequesterPharmacy = aliased(PharmacyNode)
+    ResponderPharmacy = aliased(PharmacyNode)
+
+    stmt = (
+        select(
+            TransactionLog.log_id.label("id"),
+            TransactionLog.final_outcome.label("outcome"),
+            TransactionLog.resolved_at.label("resolved_at"),
+            StockRequest.requested_drug.label("drug"),
+            RequesterPharmacy.pharmacy_id.label("requester_id"),
+            RequesterPharmacy.business_name.label("requester_name"),
+            ResponderPharmacy.pharmacy_id.label("responder_id"),
+            ResponderPharmacy.business_name.label("responder_name"),
+        )
+        .join(StockRequest, TransactionLog.request_id == StockRequest.request_id)
+        .join(
+            RequesterPharmacy,
+            StockRequest.pharmacy_id == RequesterPharmacy.pharmacy_id,
+        )
+        .outerjoin(
+            AlertNotification,
+            (StockRequest.request_id == AlertNotification.request_id)
+            & (AlertNotification.alert_status == "ACCEPTED"),
+        )
+        .outerjoin(
+            ResponderPharmacy,
+            AlertNotification.receiving_pharmacy_id == ResponderPharmacy.pharmacy_id,
+        )
+        .where(
+            (RequesterPharmacy.pharmacy_id == pharmacy_id)
+            | (ResponderPharmacy.pharmacy_id == pharmacy_id)
+        )
+        .order_by(TransactionLog.resolved_at.desc())
+    )
+
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    transactions = []
+    for row in rows:
+        if row.requester_id == pharmacy_id:
+            counterparty = row.responder_name or "Neighbor Pharmacy"
+        else:
+            counterparty = row.requester_name or "Unknown pharmacy"
+
+        transactions.append({
+            "id": row.id,
+            "drug": row.drug,
+            "pharmacy": counterparty,
+            "counterparty": counterparty,
+            "status": "completed"
+            if row.outcome == "FULFILLED_BY_NEIGHBOR"
+            else row.outcome,
+            "date": row.resolved_at.isoformat() if row.resolved_at else "-",
+            "created_at": row.resolved_at.isoformat() if row.resolved_at else "-",
+        })
+
+    return transactions
+
+
 async def get_system_transactions(db: AsyncSession) -> List[dict]:
     """
     Retrieves system-wide transactions formatted for the admin transaction monitor.
@@ -655,11 +907,3 @@ async def review_onboarding_pharmacy(
         await db.commit()
         await db.refresh(db_node)
     return db_node
-
-
-
-
-
-
-
-

@@ -24,7 +24,7 @@ class TransactionHistoryPage extends StatelessWidget {
                   padding: const EdgeInsets.all(14),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: const Color.fromARGB(255, 7, 6, 6),
                       border: Border.all(color: const Color(0xFFB4B2A9)),
                       borderRadius: BorderRadius.circular(10),
                     ),

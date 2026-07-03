@@ -15,6 +15,7 @@ class OwnerDashboardPage extends StatelessWidget {
           AppNav(links: [
             NavLink(label: 'Dashboard', path: '/dashboard', active: true),
             NavLink(label: 'Search', path: '/search'),
+            NavLink(label: 'Responder', path: '/search/response'),
             NavLink(label: 'Requests', path: '/requests'),
             NavLink(label: 'History', path: '/history'),
             NavLink(label: 'Logout', path: '/'),
@@ -25,13 +26,13 @@ class OwnerDashboardPage extends StatelessWidget {
               builder: (context, snapshot) {
                 final data = snapshot.data ?? const <String, dynamic>{};
                 final stats = (data['stats'] as Map<String, dynamic>?) ??
-                  const <String, dynamic>{};
+                    const <String, dynamic>{};
                 final recentRequests = (data['recent_requests'] as List?)
-                    ?.cast<Map<String, dynamic>>() ??
-                  const <Map<String, dynamic>>[];
+                        ?.cast<Map<String, dynamic>>() ??
+                    const <Map<String, dynamic>>[];
                 final activeQueries = (data['active_queries'] as List?)
-                    ?.cast<Map<String, dynamic>>() ??
-                  const <Map<String, dynamic>>[];
+                        ?.cast<Map<String, dynamic>>() ??
+                    const <Map<String, dynamic>>[];
 
                 return SingleChildScrollView(
                   padding: const EdgeInsets.all(14),
@@ -149,7 +150,9 @@ class OwnerDashboardPage extends StatelessWidget {
                             ],
                           ),
                         const SizedBox(height: 12),
-                        Row(
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 10,
                           children: [
                             SizedBox(
                               width: 180,
@@ -166,10 +169,32 @@ class OwnerDashboardPage extends StatelessWidget {
                                 onPressed: () => context.go('/inventory'),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: const Color(0xFF1D9E75),
-                                  side: const BorderSide(color: Color(0xFF1D9E75)),
-                                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                                  side: const BorderSide(
+                                      color: Color(0xFF1D9E75)),
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 14, horizontal: 16),
                                 ),
-                                child: const Text('Manage Stock', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                                child: const Text('Manage Stock',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600)),
+                              ),
+                            ),
+                            SizedBox(
+                              width: 180,
+                              child: OutlinedButton(
+                                onPressed: () => context.go('/search/response'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xFF633806),
+                                  side: const BorderSide(
+                                      color: Color(0xFF633806)),
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 14, horizontal: 16),
+                                ),
+                                child: const Text('Responder Page',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600)),
                               ),
                             ),
                           ],

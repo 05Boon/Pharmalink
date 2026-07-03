@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func
@@ -11,6 +11,27 @@ from app import crud
 from app import schemas
 
 api_router = APIRouter()
+
+
+@api_router.get(
+    "/drugs/search",
+    response_model=List[dict],
+    summary="Search pharmacies by drug name"
+)
+async def search_drugs(
+    query: str = Query(..., min_length=1),
+    pharmacy_id: str = Depends(get_current_user_uuid),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Searches inventory across pharmacies for drug names matching the query.
+    Excludes the authenticated pharmacy from results.
+    """
+    return await crud.search_drugs(
+        db,
+        query=query.strip(),
+        exclude_pharmacy_id=pharmacy_id,
+    )
 
 # --- Inventory Endpoints ---
 
@@ -137,6 +158,11 @@ async def create_request_and_broadcast(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Requesting pharmacy profile location is not configured in the database."
         )
+
+    requester_node = await crud.get_pharmacy_node(db, pharmacy_id)
+    requester_name = (
+        requester_node.business_name if requester_node else "Requesting Pharmacy"
+    )
         
     # 2. Save the StockRequest entry
     stock_request_data = schemas.StockRequestCreate(
@@ -177,7 +203,7 @@ async def create_request_and_broadcast(
         alert_payload = {
             "alert_id": db_alert.alert_id,
             "request_id": db_request.request_id,
-            "requesting_pharmacy_name": neighbor.business_name,
+            "requesting_pharmacy_name": requester_name,
             "requested_drug": db_request.requested_drug,
             "required_quantity": db_request.required_quantity,
             "created_at": db_request.created_at.isoformat()
@@ -241,6 +267,43 @@ async def respond_to_request(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Stock request alert notification not found for this pharmacy."
         )
+
+    if payload.status == "ACCEPTED":
+        responder = await crud.get_pharmacy_node(db, pharmacy_id)
+        accepted_alert = next(
+            (
+                alert
+                for alert in updated_request.alerts
+                if alert.receiving_pharmacy_id == pharmacy_id
+                and alert.alert_status == "ACCEPTED"
+            ),
+            None,
+        )
+
+        from app.main import manager
+
+        await manager.broadcast_to_pharmacy(
+            updated_request.pharmacy_id,
+            {
+                "event": "REQUEST_ACCEPTED",
+                "request_id": updated_request.request_id,
+                "requested_drug": updated_request.requested_drug,
+                "accepted_at": (
+                    accepted_alert.delivered_at.isoformat()
+                    if accepted_alert and accepted_alert.delivered_at
+                    else None
+                ),
+                "accepted_by_pharmacy": {
+                    "pharmacy_id": responder.pharmacy_id,
+                    "business_name": responder.business_name,
+                    "email": responder.email,
+                    "phone_number": responder.phone_number,
+                }
+                if responder
+                else None,
+            },
+        )
+
     return updated_request
 
 
@@ -292,6 +355,22 @@ async def get_dashboard(
 
 
 @api_router.get(
+    "/transactions",
+    response_model=List[dict],
+    summary="Get transaction history relevant to the authenticated pharmacy"
+)
+async def get_transactions_history(
+    pharmacy_id: str = Depends(get_current_user_uuid),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Returns transaction logs where the pharmacy participated as requester
+    or as the accepting responder.
+    """
+    return await crud.get_user_transaction_history(db, pharmacy_id)
+
+
+@api_router.get(
     "/requests/sent/current",
     response_model=schemas.StockRequestResponse,
     summary="Get the most recent stock request sent by the authenticated pharmacy"
@@ -300,13 +379,28 @@ async def get_current_sent_request(
     pharmacy_id: str = Depends(get_current_user_uuid),
     db: AsyncSession = Depends(get_db)
 ):
-    request = await crud.get_last_sent_request(db, pharmacy_id)
+    request = await crud.get_last_sent_request_with_responder(db, pharmacy_id)
     if not request:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No sent stock requests found for this pharmacy."
         )
     return request
+
+
+@api_router.get(
+    "/requests/sent",
+    response_model=List[schemas.StockRequestResponse],
+    summary="Get all stock requests sent by the authenticated pharmacy"
+)
+async def get_sent_requests(
+    pharmacy_id: str = Depends(get_current_user_uuid),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Returns all sent requests, including accepter pharmacy details when available.
+    """
+    return await crud.get_sent_requests_with_responder(db, pharmacy_id)
 
 
 @api_router.get(

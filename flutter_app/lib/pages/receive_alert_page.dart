@@ -18,6 +18,56 @@ class _ReceiveAlertPageState extends State<ReceiveAlertPage> {
   final List<Map<String, dynamic>> _liveRequests = <Map<String, dynamic>>[];
   StreamSubscription<Map<String, dynamic>>? _alertsSubscription;
 
+  String _requestingPharmacyName(Map<String, dynamic> req) {
+    final nestedPharmacy = req['pharmacy'];
+    if (nestedPharmacy is Map<String, dynamic>) {
+      final name =
+          '${nestedPharmacy['business_name'] ?? nestedPharmacy['name'] ?? ''}'
+              .trim();
+      if (name.isNotEmpty) return name;
+    }
+
+    final requestingPharmacy = req['requesting_pharmacy'];
+    if (requestingPharmacy is Map<String, dynamic>) {
+      final name =
+          '${requestingPharmacy['business_name'] ?? requestingPharmacy['pharmacy_name'] ?? requestingPharmacy['name'] ?? ''}'
+              .trim();
+      if (name.isNotEmpty) return name;
+    }
+
+    final directName =
+        '${req['pharmacy_name'] ?? req['requesting_pharmacy_name'] ?? req['business_name'] ?? ''}'
+            .trim();
+    if (directName.isNotEmpty) return directName;
+
+    final fallbackId = '${req['pharmacy_id'] ?? 'Unknown'}'.trim();
+    return fallbackId.isEmpty ? 'Unknown' : fallbackId;
+  }
+
+  bool _isUnknownPharmacy(Map<String, dynamic> req) {
+    final name = _requestingPharmacyName(req).toLowerCase();
+    return name == '-' || name == 'unknown';
+  }
+
+  int _requestDataScore(Map<String, dynamic> req) {
+    var score = 0;
+    if (!_isUnknownPharmacy(req)) score += 3;
+    final requestedDrug = '${req['requested_drug'] ?? ''}'.trim();
+    if (requestedDrug.isNotEmpty && requestedDrug != '-') score += 2;
+    final quantity = '${req['required_quantity'] ?? ''}'.trim();
+    if (quantity.isNotEmpty && quantity != '0' && quantity != '-') score += 1;
+    return score;
+  }
+
+  bool _isOpenRequest(Map<String, dynamic> req) {
+    final status = '${req['request_status'] ?? ''}'.trim().toUpperCase();
+    if (status.isEmpty) return true;
+    return status != 'FULFILLED' &&
+        status != 'ACCEPTED' &&
+        status != 'DECLINED' &&
+        status != 'CLOSED';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -59,7 +109,8 @@ class _ReceiveAlertPageState extends State<ReceiveAlertPage> {
       'alert_id': alertId,
       'pharmacy_id': alert['pharmacy_id'] ?? '',
       'pharmacy': {
-        'business_name': alert['requesting_pharmacy_name'] ?? alert['from'] ?? '-'
+        'business_name':
+            alert['requesting_pharmacy_name'] ?? alert['from'] ?? '-'
       },
       'requested_drug': alert['requested_drug'] ?? alert['drug'] ?? '-',
       'required_quantity': alert['required_quantity'] ?? alert['qty'] ?? 0,
@@ -71,32 +122,31 @@ class _ReceiveAlertPageState extends State<ReceiveAlertPage> {
   List<Map<String, dynamic>> _mergeRequests(
     List<Map<String, dynamic>> initialRequests,
   ) {
-    final merged = <Map<String, dynamic>>[];
-    final seenKeys = <String>{};
+    final mergedByKey = <String, Map<String, dynamic>>{};
 
     final all = <Map<String, dynamic>>[
       ..._liveRequests,
       ...initialRequests,
-    ];
+    ].where(_isOpenRequest).toList();
 
     for (final item in all) {
       final requestKey = '${item['request_id'] ?? ''}';
       final alertKey = '${item['alert_id'] ?? ''}';
       final fallbackKey = '${item['id'] ?? item.hashCode}';
-      final dedupeKey =
-          requestKey.isNotEmpty ? 'request:$requestKey' : alertKey.isNotEmpty
+      final dedupeKey = requestKey.isNotEmpty
+          ? 'request:$requestKey'
+          : alertKey.isNotEmpty
               ? 'alert:$alertKey'
               : 'fallback:$fallbackKey';
 
-      if (seenKeys.contains(dedupeKey)) {
-        continue;
+      final existing = mergedByKey[dedupeKey];
+      if (existing == null ||
+          _requestDataScore(item) > _requestDataScore(existing)) {
+        mergedByKey[dedupeKey] = item;
       }
-
-      seenKeys.add(dedupeKey);
-      merged.add(item);
     }
 
-    return merged;
+    return mergedByKey.values.toList();
   }
 
   Future<void> _handleDecision(
@@ -122,6 +172,13 @@ class _ReceiveAlertPageState extends State<ReceiveAlertPage> {
         accepted: accepted,
       );
 
+      setState(() {
+        _liveRequests.removeWhere((item) {
+          final id = '${item['request_id'] ?? item['id'] ?? ''}'.trim();
+          return id == requestId;
+        });
+      });
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -132,6 +189,9 @@ class _ReceiveAlertPageState extends State<ReceiveAlertPage> {
       );
 
       if (accepted) {
+        setState(() {
+          _requestsFuture = NetworkDataService.getIncomingRequests();
+        });
         context.go('/requests/accepted');
         return;
       }
@@ -204,7 +264,7 @@ class _ReceiveAlertPageState extends State<ReceiveAlertPage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'From: ${req['pharmacy']?['business_name'] ?? req['pharmacy_id'] ?? 'Unknown'}',
+                                      'Requesting pharmacy: ${_requestingPharmacyName(req)}',
                                       style: const TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w600,
