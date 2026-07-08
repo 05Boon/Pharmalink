@@ -389,8 +389,4 @@ class NetworkDataService {
   static Future<List<Map<String, dynamic>>> getAuditLogs() async {
     return _getList('${ApiConfig.baseUrl}/admin/logs');
   }
-
-  static Future<List<Map<String, dynamic>>> getReportCards() async {
-    return _getList('${ApiConfig.baseUrl}/admin/reports');
-  }
 }

@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func
 from sqlalchemy.future import select
+import datetime
 
 from app.database import get_db
 from app.dependencies import get_current_admin
@@ -10,6 +11,11 @@ from app import crud
 from app import schemas
 
 admin_router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+def _csv_escape(value) -> str:
+    text = "" if value is None else str(value)
+    return '"' + text.replace('"', '""') + '"'
 
 
 @admin_router.get(
@@ -249,5 +255,121 @@ async def get_audit_logs(
     db: AsyncSession = Depends(get_db)
 ):
     return await crud.get_system_audit_logs(db)
+
+
+@admin_router.get(
+    "/reports",
+    response_model=list[schemas.AdminReportCard],
+    summary="Get report cards for admin reporting view"
+)
+async def get_report_cards(
+    days: int = 7,
+    admin=Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Returns a lightweight card-only report payload for compact dashboard views.
+    """
+    if days <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Days parameter must be a positive integer."
+        )
+    # Lightweight endpoint for quick cards rendering.
+    return await crud.get_admin_report_cards(db, days)
+
+
+@admin_router.post(
+    "/reports/generate",
+    response_model=schemas.AdminGeneratedReport,
+    summary="Generate an admin operations report snapshot"
+)
+async def generate_admin_report(
+    days: int = 7,
+    admin=Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Generates a full admin report including summary cards and top requested drugs.
+    """
+    if days <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Days parameter must be a positive integer."
+        )
+    # Full report payload used for detailed admin analysis views.
+    return await crud.generate_admin_report(db, days)
+
+
+@admin_router.get(
+    "/reports/export",
+    summary="Export generated admin report as CSV"
+)
+async def export_admin_report_csv(
+    days: int = 7,
+    admin=Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Exports the same generated report data in CSV format for download.
+    """
+    if days <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Days parameter must be a positive integer."
+        )
+
+    report = await crud.generate_admin_report(db, days)
+    generated_at = report.get("generated_at")
+    generated_at_text = generated_at.isoformat() if generated_at else ""
+
+    lines = [
+        "section,key,value",
+        f"summary,{_csv_escape('generated_at')},{_csv_escape(generated_at_text)}",
+        f"summary,{_csv_escape('timeframe_days')},{_csv_escape(report.get('timeframe_days', days))}",
+        "",
+        "cards,title,description,icon",
+    ]
+
+    for card in report.get("cards", []):
+        lines.append(
+            "cards,"
+            f"{_csv_escape(card.get('title', ''))},"
+            f"{_csv_escape(card.get('description', ''))},"
+            f"{_csv_escape(card.get('icon', ''))}"
+        )
+
+    lines.append("")
+    lines.append("top_requested_drugs,drug_name,request_count")
+    for item in report.get("top_requested_drugs", []):
+        lines.append(
+            "top_requested_drugs,"
+            f"{_csv_escape(item.get('drug_name', ''))},"
+            f"{_csv_escape(item.get('request_count', 0))}"
+        )
+
+    lines.append("")
+    lines.append(
+        "top_requested_drugs_by_area,area_label,area_latitude,area_longitude,top_drug,request_count,total_requests_in_area"
+    )
+    for item in report.get("top_requested_drugs_by_area", []):
+        lines.append(
+            "top_requested_drugs_by_area,"
+            f"{_csv_escape(item.get('area_label', ''))},"
+            f"{_csv_escape(item.get('area_latitude', 0.0))},"
+            f"{_csv_escape(item.get('area_longitude', 0.0))},"
+            f"{_csv_escape(item.get('top_drug', ''))},"
+            f"{_csv_escape(item.get('request_count', 0))},"
+            f"{_csv_escape(item.get('total_requests_in_area', 0))}"
+        )
+
+    csv_text = "\n".join(lines)
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"admin_report_{days}d_{timestamp}.csv"
+    return Response(
+        content=csv_text,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 

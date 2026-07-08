@@ -168,4 +168,4 @@ async def test_spatial_routing_and_websocket_broadcast(db_session: AsyncSession)
             assert alert_ws_msg["requested_drug"] == "Ibuprofen 400mg"
             assert alert_ws_msg["required_quantity"] == 20
             assert alert_ws_msg["request_id"] == request_resp["request_id"]
-            assert alert_ws_msg["requesting_pharmacy_name"] == "Neighbor Nyali"
+            assert alert_ws_msg["requesting_pharmacy_name"] == "Requester Nyali"

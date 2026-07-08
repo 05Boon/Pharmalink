@@ -15,12 +15,26 @@ class RegisterPage extends StatefulWidget {
 }
 
 class _RegisterPageState extends State<RegisterPage> {
+  final _formKey = GlobalKey<FormState>();
+
   // Text field controllers
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _pharmacyNameController = TextEditingController();
   final _licenseNumberController = TextEditingController();
   final _phoneNumberController = TextEditingController();
+
+  final _emailFocus = FocusNode();
+  final _passwordFocus = FocusNode();
+  final _pharmacyNameFocus = FocusNode();
+  final _licenseFocus = FocusNode();
+  final _phoneFocus = FocusNode();
+
+  final _emailFieldKey = GlobalKey<FormFieldState<String>>();
+  final _passwordFieldKey = GlobalKey<FormFieldState<String>>();
+  final _pharmacyNameFieldKey = GlobalKey<FormFieldState<String>>();
+  final _licenseFieldKey = GlobalKey<FormFieldState<String>>();
+  final _phoneFieldKey = GlobalKey<FormFieldState<String>>();
 
   // Stores the location the user tapped on the map
   // Null means user hasn't picked a location yet
@@ -39,6 +53,77 @@ class _RegisterPageState extends State<RegisterPage> {
   // Set to Nairobi since that's your target area
   static const LatLng _nairobiCenter = LatLng(-1.2921, 36.8219);
 
+  static final RegExp _emailRegex = RegExp(
+    r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+  );
+  static final RegExp _passwordRegex = RegExp(
+    r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$',
+  );
+  static final RegExp _licenseRegex = RegExp(
+    r'^[A-Za-z0-9\-/]{5,20}$',
+  );
+  static final RegExp _phoneRegex = RegExp(
+    r'^\+?[0-9]{10,15}$',
+  );
+
+  String? _validateEmail(String? value) {
+    final email = value?.trim() ?? '';
+    if (email.isEmpty) return 'Email is required';
+    if (!_emailRegex.hasMatch(email)) return 'Enter a valid email address';
+    return null;
+  }
+
+  String? _validatePassword(String? value) {
+    final password = value?.trim() ?? '';
+    if (password.isEmpty) return 'Password is required';
+    if (!_passwordRegex.hasMatch(password)) {
+      return 'Use 8+ chars with upper, lower, number, and symbol';
+    }
+    return null;
+  }
+
+  String? _validatePharmacyName(String? value) {
+    if ((value?.trim() ?? '').isEmpty) return 'Pharmacy name is required';
+    return null;
+  }
+
+  String? _validateLicenseNumber(String? value) {
+    final license = value?.trim() ?? '';
+    if (license.isEmpty) return 'License number is required';
+    if (!_licenseRegex.hasMatch(license)) {
+      return 'Use 5-20 chars (letters, numbers, - or /)';
+    }
+    return null;
+  }
+
+  String? _validatePhoneNumber(String? value) {
+    final phone = value?.trim() ?? '';
+    if (phone.isEmpty) return 'Phone number is required';
+    if (!_phoneRegex.hasMatch(phone)) {
+      return 'Enter a valid phone number (10-15 digits)';
+    }
+    return null;
+  }
+
+  bool _validateField(GlobalKey<FormFieldState<String>> fieldKey) {
+    return fieldKey.currentState?.validate() ?? false;
+  }
+
+  void _validateAndMove(
+    GlobalKey<FormFieldState<String>> fieldKey,
+    FocusNode nextFocus,
+  ) {
+    if (_validateField(fieldKey)) {
+      FocusScope.of(context).requestFocus(nextFocus);
+    }
+  }
+
+  void _validateAndUnfocus(GlobalKey<FormFieldState<String>> fieldKey) {
+    if (_validateField(fieldKey)) {
+      FocusScope.of(context).unfocus();
+    }
+  }
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -46,6 +131,11 @@ class _RegisterPageState extends State<RegisterPage> {
     _pharmacyNameController.dispose();
     _licenseNumberController.dispose();
     _phoneNumberController.dispose();
+    _emailFocus.dispose();
+    _passwordFocus.dispose();
+    _pharmacyNameFocus.dispose();
+    _licenseFocus.dispose();
+    _phoneFocus.dispose();
     _mapController.dispose();
     super.dispose();
   }
@@ -57,23 +147,9 @@ class _RegisterPageState extends State<RegisterPage> {
       _isLoading = true;
     });
 
-    // Check all text fields are filled
-    if (_emailController.text.trim().isEmpty ||
-        _passwordController.text.trim().isEmpty ||
-        _pharmacyNameController.text.trim().isEmpty ||
-        _licenseNumberController.text.trim().isEmpty ||
-        _phoneNumberController.text.trim().isEmpty) {
+    if (!(_formKey.currentState?.validate() ?? false)) {
       setState(() {
-        _errorMessage = 'Please fill in all fields';
-        _isLoading = false;
-      });
-      return;
-    }
-
-    // Password minimum 6 characters — Supabase requirement
-    if (_passwordController.text.trim().length < 6) {
-      setState(() {
-        _errorMessage = 'Password must be at least 6 characters';
+        _errorMessage = 'Please correct the highlighted fields';
         _isLoading = false;
       });
       return;
@@ -143,10 +219,12 @@ class _RegisterPageState extends State<RegisterPage> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   padding: const EdgeInsets.all(14),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                       // Title
                       const Text(
                         'Create account',
@@ -171,6 +249,16 @@ class _RegisterPageState extends State<RegisterPage> {
                         placeholder: 'Email address',
                         keyboardType: TextInputType.emailAddress,
                         controller: _emailController,
+                        formFieldKey: _emailFieldKey,
+                        focusNode: _emailFocus,
+                        textInputAction: TextInputAction.next,
+                        validator: _validateEmail,
+                        autovalidateMode:
+                            AutovalidateMode.onUserInteraction,
+                        onFieldSubmitted: (_) => _validateAndMove(
+                          _emailFieldKey,
+                          _passwordFocus,
+                        ),
                       ),
 
                       // Password field
@@ -178,18 +266,65 @@ class _RegisterPageState extends State<RegisterPage> {
                         placeholder: 'Password',
                         obscureText: true,
                         controller: _passwordController,
+                        formFieldKey: _passwordFieldKey,
+                        focusNode: _passwordFocus,
+                        textInputAction: TextInputAction.next,
+                        validator: _validatePassword,
+                        autovalidateMode:
+                            AutovalidateMode.onUserInteraction,
+                        onTap: () {
+                          if (!_validateField(_emailFieldKey)) {
+                            FocusScope.of(context).requestFocus(_emailFocus);
+                          }
+                        },
+                        onFieldSubmitted: (_) => _validateAndMove(
+                          _passwordFieldKey,
+                          _pharmacyNameFocus,
+                        ),
                       ),
 
                       // Pharmacy name field
                       AppTextField(
                         placeholder: 'Pharmacy name',
                         controller: _pharmacyNameController,
+                        formFieldKey: _pharmacyNameFieldKey,
+                        focusNode: _pharmacyNameFocus,
+                        textInputAction: TextInputAction.next,
+                        validator: _validatePharmacyName,
+                        autovalidateMode:
+                            AutovalidateMode.onUserInteraction,
+                        onTap: () {
+                          if (!_validateField(_passwordFieldKey)) {
+                            FocusScope.of(context)
+                                .requestFocus(_passwordFocus);
+                          }
+                        },
+                        onFieldSubmitted: (_) => _validateAndMove(
+                          _pharmacyNameFieldKey,
+                          _licenseFocus,
+                        ),
                       ),
 
                       // License number field
                       AppTextField(
                         placeholder: 'License number',
                         controller: _licenseNumberController,
+                        formFieldKey: _licenseFieldKey,
+                        focusNode: _licenseFocus,
+                        textInputAction: TextInputAction.next,
+                        validator: _validateLicenseNumber,
+                        autovalidateMode:
+                            AutovalidateMode.onUserInteraction,
+                        onTap: () {
+                          if (!_validateField(_pharmacyNameFieldKey)) {
+                            FocusScope.of(context)
+                                .requestFocus(_pharmacyNameFocus);
+                          }
+                        },
+                        onFieldSubmitted: (_) => _validateAndMove(
+                          _licenseFieldKey,
+                          _phoneFocus,
+                        ),
                       ),
 
                       // Phone number field
@@ -197,6 +332,19 @@ class _RegisterPageState extends State<RegisterPage> {
                         placeholder: 'Phone number',
                         keyboardType: TextInputType.phone,
                         controller: _phoneNumberController,
+                        formFieldKey: _phoneFieldKey,
+                        focusNode: _phoneFocus,
+                        textInputAction: TextInputAction.done,
+                        validator: _validatePhoneNumber,
+                        autovalidateMode:
+                            AutovalidateMode.onUserInteraction,
+                        onTap: () {
+                          if (!_validateField(_licenseFieldKey)) {
+                            FocusScope.of(context).requestFocus(_licenseFocus);
+                          }
+                        },
+                        onFieldSubmitted: (_) =>
+                            _validateAndUnfocus(_phoneFieldKey),
                       ),
 
                       const SizedBox(height: 6),
@@ -323,7 +471,8 @@ class _RegisterPageState extends State<RegisterPage> {
                           ),
                         ),
                       ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),

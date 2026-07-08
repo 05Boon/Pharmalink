@@ -201,3 +201,34 @@ class AdminAuditLogResponse(BaseModel):
     created_at: datetime = Field(..., alias="time")
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+
+# Compact card item used for dashboard report tiles.
+class AdminReportCard(BaseModel):
+    title: str
+    description: str
+    icon: str
+
+
+# Ranked drug-demand row for the generated report details.
+class AdminTopDrugReportItem(BaseModel):
+    drug_name: str
+    request_count: int
+
+
+class AdminAreaTopDrugReportItem(BaseModel):
+    area_label: str
+    area_latitude: float
+    area_longitude: float
+    top_drug: str
+    request_count: int
+    total_requests_in_area: int
+
+
+# Full report envelope returned by the generate-report endpoint.
+class AdminGeneratedReport(BaseModel):
+    generated_at: datetime
+    timeframe_days: int
+    cards: List[AdminReportCard]
+    top_requested_drugs: List[AdminTopDrugReportItem]
+    top_requested_drugs_by_area: List[AdminAreaTopDrugReportItem]

@@ -45,5 +45,18 @@ flutter_app/.flutter-plugins
 flutter_app/.flutter-plugins-dependencies
 flutter_app/.packages
 
+# Dart / Flutter Tooling (repo-wide)
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.fvm/
+.pub/
+.pub-cache/
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.pub/
+**/.pub-cache/
+
 # Agent / Tooling State
 .agents/

@@ -14,7 +14,6 @@ import '../pages/transaction_history_page.dart';
 import '../pages/manage_pharmacies_page.dart';
 import '../pages/approve_onboarding_page.dart';
 import '../pages/monitor_transactions_page.dart';
-import '../pages/reports_page.dart';
 import '../pages/audit_logs_page.dart';
 import '../pages/manage_inventory_page.dart';
 
@@ -105,7 +104,8 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/admin/reports',
-      builder: (context, state) => const ReportsPage(),
+      // Keep legacy reports path working by rendering reports inside admin dashboard.
+      builder: (context, state) => const AdminDashboardScreen(),
     ),
     GoRoute(
       path: '/admin/logs',

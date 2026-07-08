@@ -1,11 +1,12 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from sqlalchemy import cast, func, or_
+from sqlalchemy import cast, func, or_, Numeric
 from geoalchemy2 import Geography
 from typing import Optional, List
 from app.models import StockRequest, AlertNotification, PharmacyNode, InventoryItem, TransactionLog, SystemAdmin
 from app import schemas
+import datetime
 
 async def create_stock_request(db: AsyncSession, request: schemas.StockRequestCreate) -> StockRequest:
     """
@@ -104,13 +105,16 @@ async def find_neighboring_pharmacies(
         select(PharmacyNode)
         .join(InventoryItem, PharmacyNode.pharmacy_id == InventoryItem.pharmacy_id)
         .where(
+            # Keep only pharmacies whose point is inside the requested radius.
             func.ST_DWithin(
                 cast(PharmacyNode.location, Geography),
                 cast(func.ST_GeomFromEWKT(origin_ewkt), Geography),
                 radius_meters
             )
         )
+        # Apply case-insensitive partial matching on drug name.
         .where(func.lower(InventoryItem.drug_name).like(f"%{normalized_drug_name}%"))
+        # Ensure the neighbor can satisfy the requested quantity.
         .where(InventoryItem.stock_quantity >= required_quantity)
         .distinct()
     )
@@ -337,13 +341,13 @@ async def get_outbreaks_analytics(db: AsyncSession, days: int) -> List[dict]:
     Groups by requested_drug, calculates request frequency, and uses PostGIS functions
     ST_Collect and ST_Centroid to determine the geographical center of requests.
     """
-    import datetime
     start_time = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) - datetime.timedelta(days=days)
     
     stmt = (
         select(
             StockRequest.requested_drug,
             func.count(StockRequest.request_id).label("request_frequency"),
+            # Compute a centroid from grouped request locations for map visualization.
             func.ST_X(func.ST_Centroid(func.ST_Collect(PharmacyNode.location))).label("centroid_longitude"),
             func.ST_Y(func.ST_Centroid(func.ST_Collect(PharmacyNode.location))).label("centroid_latitude")
         )
@@ -364,6 +368,158 @@ async def get_outbreaks_analytics(db: AsyncSession, days: int) -> List[dict]:
         }
         for row in rows
     ]
+
+
+async def generate_admin_report(db: AsyncSession, days: int) -> dict:
+    """
+    Builds an admin report snapshot for a configurable time window.
+    """
+    now_utc = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+    start_time = now_utc - datetime.timedelta(days=days)
+
+    # Snapshot core operational totals for the selected window.
+    total_nodes_result = await db.execute(select(func.count(PharmacyNode.pharmacy_id)))
+    active_nodes_result = await db.execute(
+        select(func.count(PharmacyNode.pharmacy_id)).where(
+            func.upper(PharmacyNode.account_status) == "ACTIVE"
+        )
+    )
+    total_requests_result = await db.execute(
+        select(func.count(StockRequest.request_id)).where(StockRequest.created_at >= start_time)
+    )
+    fulfilled_requests_result = await db.execute(
+        select(func.count(StockRequest.request_id))
+        .where(StockRequest.created_at >= start_time)
+        .where(func.upper(StockRequest.request_status) == "FULFILLED")
+    )
+    total_transactions_result = await db.execute(
+        select(func.count(TransactionLog.log_id)).where(TransactionLog.resolved_at >= start_time)
+    )
+
+    total_nodes = int(total_nodes_result.scalar() or 0)
+    active_nodes = int(active_nodes_result.scalar() or 0)
+    suspended_nodes = max(total_nodes - active_nodes, 0)
+    total_requests = int(total_requests_result.scalar() or 0)
+    fulfilled_requests = int(fulfilled_requests_result.scalar() or 0)
+    total_transactions = int(total_transactions_result.scalar() or 0)
+
+    # Reuse outbreak analytics so report cards and maps stay consistent.
+    outbreaks = await get_outbreaks_analytics(db, days)
+
+    # Rank top requested drugs in the selected report window.
+    top_drugs_stmt = (
+        select(
+            StockRequest.requested_drug.label("drug_name"),
+            func.count(StockRequest.request_id).label("request_count"),
+        )
+        .where(StockRequest.created_at >= start_time)
+        .group_by(StockRequest.requested_drug)
+        .order_by(func.count(StockRequest.request_id).desc(), StockRequest.requested_drug.asc())
+        .limit(5)
+    )
+    top_drugs_result = await db.execute(top_drugs_stmt)
+    top_drugs = [
+        {
+            "drug_name": row.drug_name,
+            "request_count": int(row.request_count or 0),
+        }
+        for row in top_drugs_result.all()
+    ]
+
+    # Build area-level demand intelligence on an ~11km grid (0.1 degrees).
+    area_demand_stmt = (
+        select(
+            func.round(cast(func.ST_Y(PharmacyNode.location), Numeric), 1).label("area_lat"),
+            func.round(cast(func.ST_X(PharmacyNode.location), Numeric), 1).label("area_lon"),
+            StockRequest.requested_drug.label("drug_name"),
+            func.count(StockRequest.request_id).label("request_count"),
+        )
+        .join(PharmacyNode, StockRequest.pharmacy_id == PharmacyNode.pharmacy_id)
+        .where(StockRequest.created_at >= start_time)
+        .group_by("area_lat", "area_lon", StockRequest.requested_drug)
+        .order_by(
+            func.round(cast(func.ST_Y(PharmacyNode.location), Numeric), 1).asc(),
+            func.round(cast(func.ST_X(PharmacyNode.location), Numeric), 1).asc(),
+            func.count(StockRequest.request_id).desc(),
+            StockRequest.requested_drug.asc(),
+        )
+    )
+    area_demand_result = await db.execute(area_demand_stmt)
+    area_rows = area_demand_result.all()
+
+    area_totals: dict[tuple[float, float], int] = {}
+    area_top_drug: dict[tuple[float, float], dict] = {}
+    for row in area_rows:
+        lat = float(row.area_lat or 0.0)
+        lon = float(row.area_lon or 0.0)
+        key = (lat, lon)
+        count = int(row.request_count or 0)
+
+        area_totals[key] = area_totals.get(key, 0) + count
+        if key not in area_top_drug:
+            area_top_drug[key] = {
+                "area_label": f"Lat {lat:.1f}, Lon {lon:.1f}",
+                "area_latitude": lat,
+                "area_longitude": lon,
+                "top_drug": row.drug_name,
+                "request_count": count,
+            }
+
+    top_drugs_by_area = [
+        {
+            **item,
+            "total_requests_in_area": area_totals.get((item["area_latitude"], item["area_longitude"]), 0),
+        }
+        for item in area_top_drug.values()
+    ]
+    top_drugs_by_area.sort(
+        key=lambda item: (
+            -int(item["total_requests_in_area"]),
+            -int(item["request_count"]),
+            item["area_label"],
+        )
+    )
+
+    # Dashboard cards are intentionally short so they can be rendered as tiles.
+    cards = [
+        {
+            "title": "Network Nodes",
+            "description": f"{total_nodes} total | {active_nodes} active | {suspended_nodes} suspended",
+            "icon": "medication",
+        },
+        {
+            "title": "Stock Requests",
+            "description": f"{total_requests} requests in last {days} days",
+            "icon": "bar_chart",
+        },
+        {
+            "title": "Fulfillment Performance",
+            "description": f"{fulfilled_requests} fulfilled | {total_transactions} transaction logs",
+            "icon": "assessment",
+        },
+        {
+            "title": "Outbreak Clusters",
+            "description": f"{len(outbreaks)} geo-clusters detected in the selected window",
+            "icon": "bar_chart",
+        },
+    ]
+
+    return {
+        "generated_at": now_utc,
+        "timeframe_days": days,
+        "cards": cards,
+        "top_requested_drugs": top_drugs,
+        "top_requested_drugs_by_area": top_drugs_by_area,
+    }
+
+
+async def get_admin_report_cards(db: AsyncSession, days: int = 7) -> List[dict]:
+    """
+    Convenience helper for UI cards-only views.
+    """
+    # Reuse the same generator to avoid card/report drift.
+    report = await generate_admin_report(db, days)
+    return report["cards"]
 
 
 async def update_pharmacy_profile(

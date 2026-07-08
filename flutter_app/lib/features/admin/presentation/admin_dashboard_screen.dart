@@ -16,12 +16,22 @@ class AdminDashboardScreen extends StatefulWidget {
 }
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
+  // Controls map panning when selecting outbreak clusters from the list.
   final MapController _mapController = MapController();
+
+  // Primary dashboard datasets loaded from admin endpoints.
   List<PharmacyNode> _pharmacies = [];
   List<OutbreakAnalytic> _outbreaks = [];
+  Map<String, dynamic>? _report;
+
+  // Shared timeframe for outbreaks and generated reports.
   int _selectedDays = 7;
+
+  // Global and report-specific loading/error state.
   bool _isLoading = true;
+  bool _isGeneratingReport = false;
   String? _errorMessage;
+  String? _reportErrorMessage;
 
   @override
   void initState() {
@@ -36,20 +46,70 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     });
 
     try {
+      // Load dashboard sources concurrently to keep the admin page responsive.
       final results = await Future.wait([
         AdminService.fetchPharmacies(),
         AdminService.fetchOutbreaks(days: _selectedDays),
+        AdminService.generateReport(days: _selectedDays),
       ]);
 
       setState(() {
         _pharmacies = results[0] as List<PharmacyNode>;
         _outbreaks = results[1] as List<OutbreakAnalytic>;
+        _report = results[2] as Map<String, dynamic>;
+        _reportErrorMessage = null;
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
         _errorMessage = 'Failed to load dashboard data: ${e.toString()}';
         _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _generateReport() async {
+    setState(() {
+      _isGeneratingReport = true;
+      _reportErrorMessage = null;
+    });
+
+    try {
+      // Refresh report payload, then immediately export it for download.
+      final generated = await AdminService.generateReport(days: _selectedDays);
+      if (!mounted) return;
+      setState(() {
+        _report = generated;
+      });
+
+      try {
+        await AdminService.downloadReportCsv(
+          days: _selectedDays,
+          reportData: generated,
+        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Report generated and download started.'),
+            backgroundColor: Color(0xFF0F6E56),
+          ),
+        );
+      } catch (downloadError) {
+        if (!mounted) return;
+        setState(() {
+          _reportErrorMessage =
+              'Report generated, but download failed: ${downloadError.toString()}';
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _reportErrorMessage = 'Failed to generate report: ${e.toString()}';
+      });
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isGeneratingReport = false;
       });
     }
   }
@@ -156,20 +216,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             const SizedBox(height: 16),
                             _buildMetricsRow(),
                             const SizedBox(height: 20),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  flex: 3,
-                                  child: _buildOutbreaksPanel(),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  flex: 5,
-                                  child: _buildPharmaciesPanel(),
-                                ),
-                              ],
-                            ),
+                            _buildReportsPanel(),
+                            const SizedBox(height: 20),
+                            // Keep the geospatial map full-width for better readability.
+                            _buildOutbreaksPanel(),
+                            const SizedBox(height: 16),
+                            _buildPharmaciesPanel(),
                           ],
                         ),
                       ),
@@ -226,9 +278,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   setState(() {
                     _selectedDays = val;
                   });
+                  // Timeframe changes rehydrate all dashboard panels.
                   _loadDashboardData();
                 }
               },
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton.icon(
+              onPressed: _isGeneratingReport ? null : _generateReport,
+              icon: const Icon(Icons.auto_graph, size: 16),
+              label: Text(
+                _isGeneratingReport ? 'Generating...' : 'Generate & Download',
+                style: const TextStyle(fontSize: 11),
+              ),
             ),
             const SizedBox(width: 8),
             IconButton(
@@ -242,6 +304,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildMetricsRow() {
+    // Derived summary counters shown as top-level operational KPIs.
     final activePharmacies = _pharmacies.where((p) => p.accountStatus.toUpperCase() == 'ACTIVE').length;
     final suspendedPharmacies = _pharmacies.length - activePharmacies;
     final totalOutbreakRequests = _outbreaks.fold<int>(0, (sum, item) => sum + item.requestFrequency);
@@ -314,6 +377,152 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildReportsPanel() {
+    // Normalize dynamic payload into strongly typed maps used by report widgets.
+    final cards = (_report?['cards'] as List?)
+        ?.whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+            .toList() ??
+        const <Map<String, dynamic>>[];
+    final topDrugs = (_report?['top_requested_drugs'] as List?)
+        ?.whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+            .toList() ??
+        const <Map<String, dynamic>>[];
+    final topDrugsByArea = (_report?['top_requested_drugs_by_area'] as List?)
+      ?.whereType<Map>()
+      .map((item) => Map<String, dynamic>.from(item))
+        .toList() ??
+      const <Map<String, dynamic>>[];
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0x80B4B2A9)),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.assessment_outlined, color: Color(0xFF0F6E56), size: 18),
+              SizedBox(width: 6),
+              Text(
+                'Generated Reports',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF1A1A18),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Generated at: ${_formatGeneratedAt(_report?['generated_at'])}',
+            style: const TextStyle(fontSize: 10, color: Color(0xFF5F5E5A)),
+          ),
+          if (_reportErrorMessage != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              _reportErrorMessage!,
+              style: const TextStyle(fontSize: 10, color: Color(0xFFB91C1C)),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: cards
+                .map(
+                  (card) => _AdminReportCard(
+                    title: '${card['title'] ?? '-'}',
+                    description: '${card['description'] ?? '-'}',
+                    icon: _reportIcon('${card['icon'] ?? ''}'),
+                  ),
+                )
+                .toList(),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Top Requested Drugs',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF1A1A18),
+            ),
+          ),
+          const SizedBox(height: 6),
+          if (topDrugs.isEmpty)
+            const Text(
+              'No drug requests found for this timeframe.',
+              style: TextStyle(fontSize: 10, color: Color(0xFF5F5E5A)),
+            ),
+          ...topDrugs.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                '${item['drug_name'] ?? '-'}: ${item['request_count'] ?? 0} request(s)',
+                style: const TextStyle(fontSize: 10, color: Color(0xFF1A1A18)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Most Requested Drug by Area',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF1A1A18),
+            ),
+          ),
+          const SizedBox(height: 6),
+          if (topDrugsByArea.isEmpty)
+            const Text(
+              'No area-level demand pattern found for this timeframe.',
+              style: TextStyle(fontSize: 10, color: Color(0xFF5F5E5A)),
+            ),
+          ...topDrugsByArea.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                '${item['area_label'] ?? '-'}: ${item['top_drug'] ?? '-'} '
+                '(${item['request_count'] ?? 0}/${item['total_requests_in_area'] ?? 0} requests)',
+                style: const TextStyle(fontSize: 10, color: Color(0xFF1A1A18)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatGeneratedAt(dynamic value) {
+    // Keep timestamp display compact for small dashboard panels.
+    final raw = '${value ?? ''}';
+    if (raw.length >= 16) {
+      return raw.replaceFirst('T', ' ').substring(0, 16);
+    }
+    return raw.isEmpty ? '-' : raw;
+  }
+
+  IconData _reportIcon(String iconName) {
+    // Maps backend icon names to Material icons.
+    switch (iconName) {
+      case 'bar_chart':
+        return Icons.bar_chart;
+      case 'assessment':
+        return Icons.assessment;
+      case 'medication':
+        return Icons.medication;
+      default:
+        return Icons.description;
+    }
   }
 
   Widget _buildPharmaciesPanel() {
@@ -473,6 +682,58 @@ class _MetricCard extends StatelessWidget {
           Text(
             subtitle,
             style: TextStyle(fontSize: 10, color: textColor.withAlpha(204)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AdminReportCard extends StatelessWidget {
+  final String title;
+  final String description;
+  final IconData icon;
+
+  const _AdminReportCard({
+    required this.title,
+    required this.description,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 280,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1EFEA),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: const Color(0xFF1D9E75), size: 24),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1A1A18),
+                  ),
+                ),
+                Text(
+                  description,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: Color(0xFF5F5E5A),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
