@@ -16,6 +16,7 @@ import '../pages/approve_onboarding_page.dart';
 import '../pages/monitor_transactions_page.dart';
 import '../pages/audit_logs_page.dart';
 import '../pages/manage_inventory_page.dart';
+import '../pages/pending_approval_page.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/register',
@@ -53,6 +54,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/dashboard',
       builder: (context, state) => const OwnerDashboardPage(),
+    ),
+    GoRoute(
+      path: '/pending_approval',
+      builder: (context, state) => const PendingApprovalPage(),
     ),
     GoRoute(
       path: '/search',

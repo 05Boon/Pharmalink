@@ -101,7 +101,12 @@ class _LoginPageState extends State<LoginPage> {
         if (AuthService.isAdmin) {
           context.go('/admin');
         } else {
-          context.go('/dashboard');
+          final status = AuthService.currentUser?['account_status'];
+          if (status == 'PENDING') {
+            context.go('/pending_approval');
+          } else {
+            context.go('/dashboard');
+          }
         }
       } else {
         setState(() {

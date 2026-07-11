@@ -224,6 +224,18 @@ class AuthService {
         'role': user.appMetadata['role'] ?? user.userMetadata?['role'] ?? '',
       };
 
+      try {
+        final profileResponse = await AppDio.instance.get(
+          '${ApiConfig.baseUrl}/pharmacies/me',
+          options: Options(
+            headers: {'Authorization': 'Bearer ${session.accessToken}'},
+          ),
+        );
+        if (profileResponse.statusCode == 200 && profileResponse.data is Map) {
+          _currentUser!['account_status'] = profileResponse.data['account_status'];
+        }
+      } catch (_) {}
+
       return {
         'ok': true,
         'data': {
