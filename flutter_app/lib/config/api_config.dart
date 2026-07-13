@@ -14,12 +14,12 @@ class ApiConfig {
 
   static const String supabaseUrl = String.fromEnvironment(
     'SUPABASE_URL',
-    defaultValue: 'https://fjnbnbtjsuxumtmhcidh.supabase.co',
+    defaultValue: 'https://lqnmeegpjhzffjslxxek.supabase.co',
   );
 
   static const String supabaseAnonKey = String.fromEnvironment(
     'SUPABASE_ANON_KEY',
-    defaultValue: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqbmJuYnRqc3V4dW10bWhjaWRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MjgzNTMsImV4cCI6MjA5NzIwNDM1M30.Ggqrad3PqQ_szto9zgT_alJveag97IgOh_LRB5czC3c',
+    defaultValue: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxxbm1lZWdwamh6ZmZqc2x4eGVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM5NjAyNjAsImV4cCI6MjA5OTUzNjI2MH0.2-TwKQyVcu7lk3AymxsGXD2Tq1xH2tuAjnDLdAIxPfs',
   );
 
   // NOTE: auth (register/login/logout/me) goes through Supabase directly via

@@ -44,6 +44,13 @@ TEST_DATABASE_URL = os.getenv(
     "postgresql+asyncpg://admin:local_secret_password@localhost:5432/pharmacy_network_db",
 )
 
+REMOTE_TEST_DB_URL = os.getenv("REMOTE_TEST_DB_URL")
+REMOTE_SUPABASE_URL = os.getenv("REMOTE_SUPABASE_URL")
+if REMOTE_SUPABASE_URL:
+    REMOTE_SUPABASE_URL = REMOTE_SUPABASE_URL.rstrip("/")
+REMOTE_SUPABASE_ANON_KEY = os.getenv("REMOTE_SUPABASE_ANON_KEY")
+REMOTE_SUPABASE_SERVICE_ROLE_KEY = os.getenv("REMOTE_SUPABASE_SERVICE_ROLE_KEY")
+
 # Fail fast in production if required Supabase credentials are missing
 if APP_ENV == "production" and (not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY):
     raise RuntimeError(
