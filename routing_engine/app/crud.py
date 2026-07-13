@@ -7,6 +7,7 @@ from typing import Optional, List
 from app.models import StockRequest, AlertNotification, PharmacyNode, InventoryItem, TransactionLog, SystemAdmin
 from app import schemas
 import datetime
+import reverse_geocoder as rg
 
 async def create_stock_request(db: AsyncSession, request: schemas.StockRequestCreate) -> StockRequest:
     """
@@ -16,7 +17,9 @@ async def create_stock_request(db: AsyncSession, request: schemas.StockRequestCr
         pharmacy_id=request.pharmacy_id,
         requested_drug=request.requested_drug,
         required_quantity=request.required_quantity,
-        search_radius_meters=request.search_radius_meters
+        search_radius_meters=request.search_radius_meters,
+        therapeutic_class=request.therapeutic_class,
+        reported_symptom=request.reported_symptom
     )
     db.add(db_request)
     await db.commit()
@@ -636,9 +639,29 @@ async def respond_to_stock_request(
         db_request.request_status = "FULFILLED"
         db.add(db_request)
         
+        general_location = None
+        if db_request.pharmacy:
+            coord_query = select(
+                func.ST_Y(PharmacyNode.location),
+                func.ST_X(PharmacyNode.location)
+            ).where(PharmacyNode.pharmacy_id == db_request.pharmacy_id)
+            coord_result = await db.execute(coord_query)
+            coord = coord_result.first()
+            lat = coord[0] if coord else 0.0
+            lon = coord[1] if coord else 0.0
+            
+            if lat != 0.0 and lon != 0.0:
+                results = rg.search((lat, lon))
+                if results:
+                    res = results[0]
+                    city = res.get('name', '')
+                    admin1 = res.get('admin1', '')
+                    general_location = f"{city}, {admin1}".strip(", ")
+                    
         log = TransactionLog(
             request_id=request_id,
             drug_category=db_request.requested_drug,
+            general_location=general_location,
             final_outcome="FULFILLED_BY_NEIGHBOR"
         )
         db.add(log)

@@ -34,6 +34,8 @@ class StockRequestBase(BaseModel):
     requested_drug: str = Field(..., min_length=1, description="Name of the requested drug")
     required_quantity: int = Field(..., gt=0, description="Quantity required, must be greater than 0")
     search_radius_meters: int = Field(2000, gt=0, description="Search radius in meters, must be greater than 0")
+    therapeutic_class: Optional[str] = Field(None, description="Therapeutic class of the requested drug")
+    reported_symptom: Optional[str] = Field(None, description="Reported symptom associated with the request")
 
 class StockRequestCreate(StockRequestBase):
     pharmacy_id: str = Field(..., description="UUID of the requesting pharmacy")
@@ -62,6 +64,8 @@ class StockRequestCreateInput(BaseModel):
     requested_drug: str = Field(..., min_length=1, description="Name of the requested drug")
     required_quantity: int = Field(..., gt=0, description="Quantity required, must be greater than 0")
     search_radius_meters: Optional[int] = Field(2000, gt=0, description="Search radius in meters, must be greater than 0")
+    therapeutic_class: Optional[str] = Field(None, description="Therapeutic class of the requested drug")
+    reported_symptom: Optional[str] = Field(None, description="Reported symptom associated with the request")
 
 
 # InventoryItem schemas

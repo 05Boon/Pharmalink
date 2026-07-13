@@ -66,6 +66,8 @@ class StockRequest(Base):
     requested_drug = Column(String, nullable=False)
     required_quantity = Column(Integer, nullable=False)
     search_radius_meters = Column(Integer, default=2000)
+    therapeutic_class = Column(String, nullable=True)
+    reported_symptom = Column(String, nullable=True)
     request_status = Column(String, default="PENDING")
     created_at = Column(DateTime, default=utc_now)
 
