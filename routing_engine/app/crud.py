@@ -427,19 +427,23 @@ async def generate_admin_report(db: AsyncSession, days: int) -> dict:
     ]
 
     # Build area-level demand intelligence on an ~11km grid (0.1 degrees).
+    # Reuse the same bucket expressions in select/group/order to avoid
+    # PostgreSQL grouping errors from equivalent-but-distinct expressions.
+    area_lat_bucket = func.round(cast(func.ST_Y(PharmacyNode.location), Numeric), 1)
+    area_lon_bucket = func.round(cast(func.ST_X(PharmacyNode.location), Numeric), 1)
     area_demand_stmt = (
         select(
-            func.round(cast(func.ST_Y(PharmacyNode.location), Numeric), 1).label("area_lat"),
-            func.round(cast(func.ST_X(PharmacyNode.location), Numeric), 1).label("area_lon"),
+            area_lat_bucket.label("area_lat"),
+            area_lon_bucket.label("area_lon"),
             StockRequest.requested_drug.label("drug_name"),
             func.count(StockRequest.request_id).label("request_count"),
         )
         .join(PharmacyNode, StockRequest.pharmacy_id == PharmacyNode.pharmacy_id)
         .where(StockRequest.created_at >= start_time)
-        .group_by("area_lat", "area_lon", StockRequest.requested_drug)
+        .group_by(area_lat_bucket, area_lon_bucket, StockRequest.requested_drug)
         .order_by(
-            func.round(cast(func.ST_Y(PharmacyNode.location), Numeric), 1).asc(),
-            func.round(cast(func.ST_X(PharmacyNode.location), Numeric), 1).asc(),
+            area_lat_bucket.asc(),
+            area_lon_bucket.asc(),
             func.count(StockRequest.request_id).desc(),
             StockRequest.requested_drug.asc(),
         )

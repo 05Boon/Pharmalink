@@ -45,27 +45,49 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       _errorMessage = null;
     });
 
-    try {
-      // Load dashboard sources concurrently to keep the admin page responsive.
-      final results = await Future.wait([
-        AdminService.fetchPharmacies(),
-        AdminService.fetchOutbreaks(days: _selectedDays),
-        AdminService.generateReport(days: _selectedDays),
-      ]);
+    // Load sections independently so one failing endpoint does not blank the page.
+    final sectionErrors = <String>[];
 
-      setState(() {
-        _pharmacies = results[0] as List<PharmacyNode>;
-        _outbreaks = results[1] as List<OutbreakAnalytic>;
-        _report = results[2] as Map<String, dynamic>;
+    final pharmacies = await AdminService.fetchPharmacies().catchError((error) {
+      sectionErrors.add('pharmacies: ${error.toString()}');
+      return <PharmacyNode>[];
+    });
+
+    final outbreaks = await AdminService.fetchOutbreaks(days: _selectedDays)
+        .catchError((error) {
+      sectionErrors.add('outbreaks: ${error.toString()}');
+      return <OutbreakAnalytic>[];
+    });
+
+    final report = await AdminService.generateReport(days: _selectedDays)
+        .then<Map<String, dynamic>?>((value) => value)
+        .catchError((error) {
+      sectionErrors.add('report: ${error.toString()}');
+      return null;
+    });
+
+    if (!mounted) return;
+    setState(() {
+      _pharmacies = pharmacies;
+      _outbreaks = outbreaks;
+
+      if (report != null) {
+        _report = report;
         _reportErrorMessage = null;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Failed to load dashboard data: ${e.toString()}';
-        _isLoading = false;
-      });
-    }
+      } else {
+        _reportErrorMessage =
+            'Report data unavailable right now. You can still view pharmacies and outbreaks.';
+      }
+
+      _errorMessage = (pharmacies.isEmpty &&
+              outbreaks.isEmpty &&
+              report == null &&
+              sectionErrors.isNotEmpty)
+          ? 'Failed to load dashboard data: ${sectionErrors.join(' | ')}'
+          : null;
+
+      _isLoading = false;
+    });
   }
 
   Future<void> _generateReport() async {
@@ -107,10 +129,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         _reportErrorMessage = 'Failed to generate report: ${e.toString()}';
       });
     } finally {
-      if (!mounted) return;
-      setState(() {
-        _isGeneratingReport = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isGeneratingReport = false;
+        });
+      }
     }
   }
 
