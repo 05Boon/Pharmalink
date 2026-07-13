@@ -1,7 +1,7 @@
 from fastapi import Header, HTTPException, status, Depends
 from typing import Optional
 from httpx import AsyncClient
-from app.settings import ALLOW_MOCK_AUTH, SUPABASE_ANON_KEY, SUPABASE_URL
+from app.settings import ALLOW_MOCK_AUTH, SUPABASE_ANON_KEY, SUPABASE_URL, MOCK_AUTH_BYPASS, MOCK_PHARMACY_UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -13,6 +13,9 @@ async def resolve_token(token: str) -> Optional[str]:
     Resolves a token into a user UUID strictly via Supabase validation.
     Mock tokens are accepted only when ALLOW_MOCK_AUTH is enabled.
     """
+    if MOCK_AUTH_BYPASS:
+        return MOCK_PHARMACY_UUID
+
     if not token:
         return None
 
@@ -87,6 +90,9 @@ async def get_current_user_uuid(authorization: Optional[str] = Header(None)) -> 
     """
     FastAPI dependency that validates a Supabase JWT and returns user UUID.
     """
+    if MOCK_AUTH_BYPASS:
+        return MOCK_PHARMACY_UUID
+
     token = parse_bearer_token(authorization)
     user_uuid = await resolve_token(token)
     if not user_uuid:
@@ -105,6 +111,9 @@ async def get_current_admin(
     FastAPI dependency that extracts the authenticated user UUID and verifies
     that they exist in the SystemAdmin registry database table.
     """
+    if MOCK_AUTH_BYPASS:
+        return SystemAdmin(admin_id="mock-admin", email="admin@local.test")
+
     stmt = select(SystemAdmin).where(SystemAdmin.admin_id == admin_uuid)
     result = await db.execute(stmt)
     admin = result.scalar_one_or_none()

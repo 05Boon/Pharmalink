@@ -33,6 +33,12 @@ ALLOW_MOCK_AUTH = _to_bool(
     default=APP_ENV != "production",
 )
 
+MOCK_AUTH_BYPASS = _to_bool(
+    os.getenv("MOCK_AUTH_BYPASS"),
+    default=False,
+)
+MOCK_PHARMACY_UUID = os.getenv("MOCK_PHARMACY_UUID", "00000000-0000-0000-0000-000000000000")
+
 TEST_DATABASE_URL = os.getenv(
     "TEST_DATABASE_URL",
     "postgresql+asyncpg://admin:local_secret_password@localhost:5432/pharmacy_network_db",
