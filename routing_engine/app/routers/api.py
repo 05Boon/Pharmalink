@@ -13,6 +13,96 @@ from app import schemas
 api_router = APIRouter()
 
 
+# --- Profile Endpoints ---
+
+@api_router.get(
+    "/profile",
+    response_model=schemas.PharmacyNodeResponse,
+    summary="Get the authenticated pharmacy's profile"
+)
+async def get_my_profile(
+    pharmacy_id: str = Depends(get_current_user_uuid),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Retrieves the authenticated pharmacy's profile.
+    """
+    db_node = await crud.get_pharmacy_node(db, pharmacy_id)
+    if not db_node:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pharmacy profile not found."
+        )
+
+    coord_query = select(
+        func.ST_X(PharmacyNode.location),
+        func.ST_Y(PharmacyNode.location)
+    ).where(PharmacyNode.pharmacy_id == pharmacy_id)
+    coord_result = await db.execute(coord_query)
+    coord = coord_result.first()
+    
+    longitude = coord[0] if coord else 0.0
+    latitude = coord[1] if coord else 0.0
+
+    return schemas.PharmacyNodeResponse(
+        pharmacy_id=db_node.pharmacy_id,
+        business_name=db_node.business_name,
+        license_number=db_node.license_number,
+        email=db_node.email,
+        phone_number=db_node.phone_number,
+        latitude=latitude,
+        longitude=longitude,
+        general_location=db_node.general_location,
+        account_status=db_node.account_status,
+        created_at=db_node.created_at
+    )
+
+
+@api_router.patch(
+    "/profile",
+    response_model=schemas.PharmacyNodeResponse,
+    summary="Update the authenticated pharmacy's profile"
+)
+async def update_my_profile(
+    profile_update: schemas.PharmacyProfileUpdate,
+    pharmacy_id: str = Depends(get_current_user_uuid),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Updates the authenticated pharmacy's profile fields.
+    Strictly locks down geographic and identity fields by ignoring them.
+    """
+    db_node = await crud.update_pharmacy_profile(db, pharmacy_id, profile_update)
+    if not db_node:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pharmacy profile not found."
+        )
+
+    coord_query = select(
+        func.ST_X(PharmacyNode.location),
+        func.ST_Y(PharmacyNode.location)
+    ).where(PharmacyNode.pharmacy_id == pharmacy_id)
+    coord_result = await db.execute(coord_query)
+    coord = coord_result.first()
+    
+    longitude = coord[0] if coord else 0.0
+    latitude = coord[1] if coord else 0.0
+
+    return schemas.PharmacyNodeResponse(
+        pharmacy_id=db_node.pharmacy_id,
+        business_name=db_node.business_name,
+        license_number=db_node.license_number,
+        email=db_node.email,
+        phone_number=db_node.phone_number,
+        latitude=latitude,
+        longitude=longitude,
+        general_location=db_node.general_location,
+        account_status=db_node.account_status,
+        created_at=db_node.created_at
+    )
+
+
 @api_router.get(
     "/drugs/search",
     response_model=List[dict],
