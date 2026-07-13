@@ -18,6 +18,7 @@ class OwnerDashboardPage extends StatelessWidget {
             NavLink(label: 'Responder', path: '/search/response'),
             NavLink(label: 'Requests', path: '/requests'),
             NavLink(label: 'History', path: '/history'),
+            NavLink(label: 'Profile', path: '/profile'),
             NavLink(label: 'Logout', path: '/'),
           ]),
           Expanded(

@@ -301,6 +301,25 @@ async def create_pharmacy_node(
     return db_node
 
 
+async def update_pharmacy_profile(
+    db: AsyncSession, pharmacy_id: str, profile_update: schemas.PharmacyProfileUpdate
+) -> Optional[PharmacyNode]:
+    """
+    Updates a PharmacyNode profile with the given fields.
+    """
+    db_node = await get_pharmacy_node(db, pharmacy_id)
+    if not db_node:
+        return None
+        
+    update_data = profile_update.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_node, key, value)
+        
+    await db.commit()
+    await db.refresh(db_node)
+    return db_node
+
+
 async def get_active_stock_requests(db: AsyncSession, pharmacy_id: str) -> List[StockRequest]:
     """
     Retrieves all active (PENDING) stock requests created by a pharmacy.

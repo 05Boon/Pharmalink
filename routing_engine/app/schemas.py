@@ -97,6 +97,11 @@ class PharmacyProfileSync(BaseModel):
     longitude: float = Field(..., ge=-180, le=180, description="GPS longitude coordinate")
 
 
+class PharmacyProfileUpdate(BaseModel):
+    business_name: Optional[str] = Field(None, min_length=1, description="Registered name of the pharmacy")
+    phone_number: Optional[str] = Field(None, min_length=1, description="Primary contact phone number")
+    general_location: Optional[str] = Field(None, description="General locality (e.g., City, Region)")
+
 class PharmacyNodeResponse(BaseModel):
     pharmacy_id: str
     business_name: str

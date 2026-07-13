@@ -17,6 +17,7 @@ import '../pages/monitor_transactions_page.dart';
 import '../pages/audit_logs_page.dart';
 import '../pages/manage_inventory_page.dart';
 import '../pages/pending_approval_page.dart';
+import '../pages/profile_management_screen.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/register',
@@ -88,6 +89,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/inventory',
       builder: (context, state) => const ManageInventoryPage(),
+    ),
+    GoRoute(
+      path: '/profile',
+      builder: (context, state) => const ProfileManagementScreen(),
     ),
     GoRoute(
       path: '/admin',

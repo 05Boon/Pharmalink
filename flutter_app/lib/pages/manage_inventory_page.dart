@@ -166,6 +166,10 @@ class _ManageInventoryPageState extends State<ManageInventoryPage> {
           AppNav(links: [
             NavLink(label: 'Dashboard', path: '/dashboard'),
             NavLink(label: 'Inventory', path: '/inventory', active: true),
+            NavLink(label: 'Requests', path: '/requests'),
+            NavLink(label: 'History', path: '/history'),
+            NavLink(label: 'Profile', path: '/profile'),
+            NavLink(label: 'Logout', path: '/'),
           ]),
           Expanded(
             child: Row(

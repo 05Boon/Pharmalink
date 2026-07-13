@@ -47,7 +47,6 @@ async def get_all_pharmacies(
         
         longitude = coord[0] if coord else 0.0
         latitude = coord[1] if coord else 0.0
-        
         response_nodes.append(schemas.PharmacyNodeResponse(
             pharmacy_id=node.pharmacy_id,
             business_name=node.business_name,
@@ -56,6 +55,7 @@ async def get_all_pharmacies(
             phone_number=node.phone_number,
             latitude=latitude,
             longitude=longitude,
+            general_location=node.general_location,
             account_status=node.account_status,
             created_at=node.created_at
         ))
@@ -103,6 +103,7 @@ async def patch_pharmacy_status(
         phone_number=updated_node.phone_number,
         latitude=latitude,
         longitude=longitude,
+        general_location=updated_node.general_location,
         account_status=updated_node.account_status,
         created_at=updated_node.created_at
     )
@@ -166,6 +167,7 @@ async def get_pharmacy_detail(
         phone_number=node.phone_number,
         latitude=latitude,
         longitude=longitude,
+        general_location=node.general_location,
         account_status=node.account_status,
         created_at=node.created_at
     )
