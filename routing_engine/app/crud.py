@@ -439,19 +439,26 @@ async def generate_admin_report(db: AsyncSession, days: int) -> dict:
     ]
 
     # Build area-level demand intelligence on an ~11km grid (0.1 degrees).
+    area_lat = func.round(cast(func.ST_Y(PharmacyNode.location), Numeric), 1).label("area_lat")
+    area_lon = func.round(cast(func.ST_X(PharmacyNode.location), Numeric), 1).label("area_lon")
+    
     area_demand_stmt = (
         select(
-            func.round(cast(func.ST_Y(PharmacyNode.location), Numeric), 1).label("area_lat"),
-            func.round(cast(func.ST_X(PharmacyNode.location), Numeric), 1).label("area_lon"),
+            area_lat,
+            area_lon,
             StockRequest.requested_drug.label("drug_name"),
             func.count(StockRequest.request_id).label("request_count"),
         )
         .join(PharmacyNode, StockRequest.pharmacy_id == PharmacyNode.pharmacy_id)
         .where(StockRequest.created_at >= start_time)
-        .group_by("area_lat", "area_lon", StockRequest.requested_drug)
+        .group_by(
+            area_lat,
+            area_lon,
+            StockRequest.requested_drug
+        )
         .order_by(
-            func.round(cast(func.ST_Y(PharmacyNode.location), Numeric), 1).asc(),
-            func.round(cast(func.ST_X(PharmacyNode.location), Numeric), 1).asc(),
+            area_lat.asc(),
+            area_lon.asc(),
             func.count(StockRequest.request_id).desc(),
             StockRequest.requested_drug.asc(),
         )
@@ -1106,7 +1113,7 @@ async def detect_outbreaks(db: AsyncSession, days_back: int = 7, threshold: int 
     Detect localized disease clusters by aggregating recent stock requests
     and filtering out routine reasons. Uses pure SQL joins and grouping.
     """
-    cutoff_date = datetime.datetime.utcnow() - datetime.timedelta(days=days_back)
+    cutoff_date = datetime.datetime.now(datetime.UTC).replace(tzinfo=None) - datetime.timedelta(days=days_back)
     
     stmt = (
         select(

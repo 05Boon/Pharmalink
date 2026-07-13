@@ -159,3 +159,102 @@ async def test_outbreak_analytics_endpoint(db_session):
         )
         assert response.status_code == 400
         assert "Days parameter must be a positive integer" in response.json()["detail"]
+
+from app.models import TransactionLog
+
+@pytest.mark.asyncio
+async def test_new_outbreak_engine(db_session):
+    now = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+    pharm_a = PharmacyNode(
+        pharmacy_id="outbreak-pharm-a-2",
+        business_name="Outbreak Pharm A2",
+        license_number="PPB-OUT-A2",
+        email="out_a2@test.com",
+        phone_number="1234",
+        location="POINT(39.68 -4.04)",
+        general_location="Mombasa, Mombasa"
+    )
+    db_session.add(pharm_a)
+    await db_session.commit()
+
+    req_1 = StockRequest(
+        pharmacy_id="outbreak-pharm-a-2",
+        requested_drug="amoxicillin",
+        drug_category="Antibiotic",
+        shortage_reason="Fever/Chills Spike",
+        required_quantity=10,
+        created_at=now
+    )
+    req_2 = StockRequest(
+        pharmacy_id="outbreak-pharm-a-2",
+        requested_drug="amoxicillin",
+        drug_category="Antibiotic",
+        shortage_reason="Fever/Chills Spike",
+        required_quantity=20,
+        created_at=now
+    )
+    req_3 = StockRequest(
+        pharmacy_id="outbreak-pharm-a-2",
+        requested_drug="paracetamol",
+        drug_category="Antipyretic/Analgesic",
+        shortage_reason="Routine Restock",
+        required_quantity=50,
+        created_at=now
+    )
+    db_session.add_all([req_1, req_2, req_3])
+    await db_session.commit()
+
+    alerts = await crud.detect_outbreaks(db_session, threshold=1)
+    print(f"\n[OUTBREAK ENGINE] Returned Alerts: {alerts}")
+    assert len(alerts) >= 1
+    
+    for alert in alerts:
+        assert alert['shortage_reason'] != "Routine Restock"
+
+@pytest.mark.asyncio
+async def test_system_kpis(db_session):
+    now = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+    pharm_a = PharmacyNode(
+        pharmacy_id="outbreak-pharm-a-2",
+        business_name="Outbreak Pharm A2",
+        license_number="PPB-OUT-A2-KPI",
+        email="out_a2_kpi@test.com",
+        phone_number="12345",
+        location="POINT(39.68 -4.04)",
+        general_location="Mombasa, Mombasa"
+    )
+    db_session.add(pharm_a)
+    await db_session.commit()
+
+    req_pending = StockRequest(
+        pharmacy_id="outbreak-pharm-a-2",
+        requested_drug="zinc",
+        required_quantity=10,
+        request_status="PENDING",
+        created_at=now
+    )
+    req_fulfilled = StockRequest(
+        pharmacy_id="outbreak-pharm-a-2",
+        requested_drug="zinc",
+        required_quantity=10,
+        request_status="FULFILLED",
+        created_at=now - datetime.timedelta(minutes=45)
+    )
+    db_session.add_all([req_pending, req_fulfilled])
+    await db_session.commit()
+    await db_session.refresh(req_fulfilled)
+
+    log = TransactionLog(
+        request_id=req_fulfilled.request_id,
+        drug_category="General",
+        final_outcome="FULFILLED_BY_NEIGHBOR",
+        resolved_at=now
+    )
+    db_session.add(log)
+    await db_session.commit()
+
+    report = await crud.generate_admin_report(db_session, days=1)
+    print(f"\n[SYSTEM KPIs] Generated KPI Report: {report}")
+    
+    assert report["fulfillment_rate"] >= 0.0
+    assert report["average_resolution_time_mins"] >= 0

@@ -88,3 +88,49 @@ async def test_validation_errors():
             required_quantity=10,
             search_radius_meters=-50 # Invalid search radius
         )
+
+@pytest.mark.asyncio
+async def test_ssot_category_injection(db_session: AsyncSession):
+    pharmacy = PharmacyNode(
+        pharmacy_id="ssot-pharm-123",
+        business_name="SSOT Pharmacy",
+        license_number="PPB-SSOT-123",
+        email="ssot@test.com",
+        phone_number="+254700000003",
+        location="POINT(36.8219 -1.2921)"  # Nairobi
+    )
+    await db_session.merge(pharmacy)
+    await db_session.commit()
+
+    req_input = schemas.StockRequestCreate(
+        pharmacy_id="ssot-pharm-123",
+        requested_drug="paracetamol",
+        required_quantity=50,
+        search_radius_meters=1000
+    )
+    db_req = await crud.create_stock_request(db_session, req_input)
+    print(f"\n[SSOT INJECTION] StockRequest Drug: '{db_req.requested_drug}' -> Category: '{db_req.drug_category}'")
+    assert db_req.drug_category == "Antipyretic/Analgesic"
+
+    inv_input = schemas.InventoryItemCreate(
+        drug_name="amoxicillin",
+        stock_quantity=100
+    )
+    db_inv = await crud.create_or_update_inventory_item(db_session, "ssot-pharm-123", inv_input)
+    print(f"[SSOT INJECTION] InventoryItem Drug: '{db_inv.drug_name}' -> Category: '{db_inv.drug_category}'")
+    assert db_inv.drug_category == "Antibiotic"
+
+@pytest.mark.asyncio
+async def test_geocode_shift_on_pharmacy_creation(db_session: AsyncSession):
+    profile = schemas.PharmacyProfileSync(
+        business_name="Geocode Pharmacy",
+        license_number="PPB-GEO-123",
+        email="geo@test.com",
+        phone_number="+254700000004",
+        latitude=-1.2921,
+        longitude=36.8219
+    )
+    db_node = await crud.create_pharmacy_node(db_session, "geo-pharm-123", profile)
+    print(f"\n[GEOCODE SHIFT] Coordinates: ({profile.latitude}, {profile.longitude}) -> Location: '{db_node.general_location}'")
+    assert db_node.general_location is not None
+    assert "Nairobi" in db_node.general_location
