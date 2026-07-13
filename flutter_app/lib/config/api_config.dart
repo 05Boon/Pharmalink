@@ -22,10 +22,11 @@ class ApiConfig {
     defaultValue: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxxbm1lZWdwamh6ZmZqc2x4eGVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM5NjAyNjAsImV4cCI6MjA5OTUzNjI2MH0.2-TwKQyVcu7lk3AymxsGXD2Tq1xH2tuAjnDLdAIxPfs',
   );
 
-  // NOTE: auth (register/login/logout/me) goes through Supabase directly via
-  // AuthService, not through this backend, so no /auth/* getters live here.
-  // If a backend health-check endpoint is ever added, point healthUrl at the
-  // root ("/") since that's the only health route the backend exposes today.
+  static String get healthUrl => '$baseUrl/health';
+  static String get registerUrl => '$baseUrl/auth/register';
+  static String get loginUrl => '$baseUrl/auth/login';
+  static String get logoutUrl => '$baseUrl/auth/logout';
+  static String get meUrl => '$baseUrl/auth/me';
   static String get drugsSearchUrl => '$baseUrl/drugs/search';
   static String get requestsUrl => '$baseUrl/requests';
   static String get transactionsUrl => '$baseUrl/transactions';
