@@ -105,6 +105,7 @@ class PharmacyNodeResponse(BaseModel):
     phone_number: str
     latitude: float
     longitude: float
+    general_location: Optional[str] = None
     account_status: str
     created_at: datetime
 
@@ -142,6 +143,15 @@ class OutbreakAnalytic(BaseModel):
     request_frequency: int
     centroid_latitude: float
     centroid_longitude: float
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class OutbreakAlert(BaseModel):
+    location: str
+    drug_category: str
+    shortage_reason: str
+    incident_count: int
 
     model_config = ConfigDict(from_attributes=True)
 

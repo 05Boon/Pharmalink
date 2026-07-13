@@ -277,6 +277,13 @@ async def create_pharmacy_node(
     """
     Creates a new PharmacyNode entry using the provided profile details and custom primary key.
     """
+    general_location = None
+    results = rg.search((profile.latitude, profile.longitude))
+    if results:
+        city = results[0].get('name', '')
+        admin1 = results[0].get('admin1', '')
+        general_location = f"{city}, {admin1}".strip(", ")
+
     point_wkt = f"POINT({profile.longitude} {profile.latitude})"
     db_node = PharmacyNode(
         pharmacy_id=pharmacy_id,
@@ -285,6 +292,7 @@ async def create_pharmacy_node(
         email=profile.email,
         phone_number=profile.phone_number,
         location=f"SRID=4326;{point_wkt}",
+        general_location=general_location,
         account_status="PENDING"
     )
     db.add(db_node)
@@ -563,6 +571,11 @@ async def update_pharmacy_profile(
         if profile_update.latitude is not None and profile_update.longitude is not None:
             point_wkt = f"POINT({profile_update.longitude} {profile_update.latitude})"
             db_node.location = f"SRID=4326;{point_wkt}"
+            results = rg.search((profile_update.latitude, profile_update.longitude))
+            if results:
+                city = results[0].get('name', '')
+                admin1 = results[0].get('admin1', '')
+                db_node.general_location = f"{city}, {admin1}".strip(", ")
         db.add(db_node)
         await db.commit()
         await db.refresh(db_node)
@@ -640,29 +653,9 @@ async def respond_to_stock_request(
         db_request.request_status = "FULFILLED"
         db.add(db_request)
         
-        general_location = None
-        if db_request.pharmacy:
-            coord_query = select(
-                func.ST_Y(PharmacyNode.location),
-                func.ST_X(PharmacyNode.location)
-            ).where(PharmacyNode.pharmacy_id == db_request.pharmacy_id)
-            coord_result = await db.execute(coord_query)
-            coord = coord_result.first()
-            lat = coord[0] if coord else 0.0
-            lon = coord[1] if coord else 0.0
-            
-            if lat != 0.0 and lon != 0.0:
-                results = rg.search((lat, lon))
-                if results:
-                    res = results[0]
-                    city = res.get('name', '')
-                    admin1 = res.get('admin1', '')
-                    general_location = f"{city}, {admin1}".strip(", ")
-                    
         log = TransactionLog(
             request_id=request_id,
             drug_category=db_request.requested_drug,
-            general_location=general_location,
             final_outcome="FULFILLED_BY_NEIGHBOR"
         )
         db.add(log)
@@ -1106,3 +1099,40 @@ async def review_onboarding_pharmacy(
         await db.commit()
         await db.refresh(db_node)
     return db_node
+
+
+async def detect_outbreaks(db: AsyncSession, days_back: int = 7, threshold: int = 2) -> List[dict]:
+    """
+    Detect localized disease clusters by aggregating recent stock requests
+    and filtering out routine reasons. Uses pure SQL joins and grouping.
+    """
+    cutoff_date = datetime.datetime.utcnow() - datetime.timedelta(days=days_back)
+    
+    stmt = (
+        select(
+            PharmacyNode.general_location.label("location"),
+            StockRequest.drug_category,
+            StockRequest.shortage_reason,
+            func.count(StockRequest.request_id).label("incident_count")
+        )
+        .join(PharmacyNode, StockRequest.pharmacy_id == PharmacyNode.pharmacy_id)
+        .where(StockRequest.created_at >= cutoff_date)
+        .where(StockRequest.shortage_reason.notin_(["Routine Restock", "Supply Chain Delay"]))
+        .where(StockRequest.shortage_reason.isnot(None))
+        .where(PharmacyNode.general_location.isnot(None))
+        .group_by(PharmacyNode.general_location, StockRequest.drug_category, StockRequest.shortage_reason)
+        .having(func.count(StockRequest.request_id) >= threshold)
+    )
+    
+    result = await db.execute(stmt)
+    rows = result.all()
+    
+    alerts = []
+    for row in rows:
+        alerts.append({
+            "location": row.location,
+            "drug_category": row.drug_category,
+            "shortage_reason": row.shortage_reason,
+            "incident_count": row.incident_count
+        })
+    return alerts

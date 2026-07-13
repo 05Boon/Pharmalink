@@ -33,6 +33,7 @@ class PharmacyNode(Base):
     
     # Geographic coordinates (WGS 84)
     location = Column(Geometry(geometry_type="POINT", srid=4326), nullable=False)
+    general_location = Column(String, nullable=True)
     
     account_status = Column(String, default="PENDING") 
     created_at = Column(DateTime, default=utc_now)
@@ -84,7 +85,6 @@ class TransactionLog(Base):
     request_id = Column(String, ForeignKey("stock_requests.request_id", ondelete="SET NULL"), nullable=True, index=True)
     
     drug_category = Column(String, nullable=True)
-    general_location = Column(String, nullable=True)
     final_outcome = Column(String, nullable=False) # e.g., "FULFILLED_BY_NEIGHBOR", "EXPIRED"
     resolved_at = Column(DateTime, default=utc_now)
 

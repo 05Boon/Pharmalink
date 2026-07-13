@@ -373,3 +373,20 @@ async def export_admin_report_csv(
     )
 
 
+@admin_router.get(
+    "/outbreak-alerts",
+    response_model=list[schemas.OutbreakAlert],
+    summary="Detect localized outbreak clusters"
+)
+async def get_outbreak_alerts(
+    days_back: int = 7,
+    threshold: int = 2,
+    admin=Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Analyzes recent stock requests using pure SQL to detect localized
+    clusters of specific shortages.
+    """
+    alerts = await crud.detect_outbreaks(db, days_back=days_back, threshold=threshold)
+    return alerts
