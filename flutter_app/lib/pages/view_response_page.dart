@@ -63,9 +63,9 @@ class ViewResponsePage extends StatelessWidget {
                               ConnectionState.waiting)
                             const Center(child: CircularProgressIndicator()),
                           if (snapshot.hasError)
-                            Text(
+                            const Text(
                               'Could not load responses right now.',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 10,
                                 color: Color(0xFF791F1F),
                               ),

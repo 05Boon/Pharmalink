@@ -161,7 +161,7 @@ class _DrugQueryPageState extends State<DrugQueryPage> {
                       ),
                       const SizedBox(height: 10),
                       DropdownButtonFormField<String>(
-                        value: _shortageReason,
+                        initialValue: _shortageReason,
                         decoration: InputDecoration(
                           hintText: 'Shortage Reason (Optional)',
                           hintStyle: const TextStyle(fontSize: 14, color: Color(0xFF5F5E5A)),

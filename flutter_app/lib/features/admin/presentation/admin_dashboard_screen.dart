@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
 import '../../../widgets/app_nav.dart';
 import '../models/outbreak_analytic_model.dart';
 import '../models/pharmacy_node_model.dart';
 import '../services/admin_service.dart';
+import '../../../services/network_data_service.dart';
+import '../../../models/outbreak_alert.dart';
 import 'widgets/outbreak_map.dart';
 import 'widgets/outbreak_list.dart';
 
@@ -22,6 +23,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   // Primary dashboard datasets loaded from admin endpoints.
   List<PharmacyNode> _pharmacies = [];
   List<OutbreakAnalytic> _outbreaks = [];
+  List<OutbreakAlert> _alerts = [];
   Map<String, dynamic>? _report;
 
   // Shared timeframe for outbreaks and generated reports.
@@ -51,12 +53,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         AdminService.fetchPharmacies(),
         AdminService.fetchOutbreaks(days: _selectedDays),
         AdminService.generateReport(days: _selectedDays),
+        NetworkDataService.getOutbreakAlerts(),
       ]);
 
       setState(() {
         _pharmacies = results[0] as List<PharmacyNode>;
         _outbreaks = results[1] as List<OutbreakAnalytic>;
         _report = results[2] as Map<String, dynamic>;
+        
+        final rawAlerts = results[3] as List<Map<String, dynamic>>;
+        _alerts = rawAlerts.map((e) => OutbreakAlert.fromJson(e)).toList();
+        
         _reportErrorMessage = null;
         _isLoading = false;
       });
@@ -107,10 +114,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         _reportErrorMessage = 'Failed to generate report: ${e.toString()}';
       });
     } finally {
-      if (!mounted) return;
-      setState(() {
-        _isGeneratingReport = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isGeneratingReport = false;
+        });
+      }
     }
   }
 
@@ -360,19 +368,33 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          OutbreakMap(
-            outbreaks: _outbreaks,
-            mapController: _mapController,
-          ),
           const SizedBox(height: 12),
-          OutbreakList(
-            outbreaks: _outbreaks,
-            onItemTapped: (o) {
-              _mapController.move(
-                LatLng(o.centroidLatitude, o.centroidLongitude),
-                13.0,
-              );
-            },
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 5,
+                child: OutbreakMap(
+                  outbreaks: _outbreaks,
+                  mapController: _mapController,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                flex: 3,
+                child: Container(
+                  height: 350,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9F8F6),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0x80B4B2A9)),
+                  ),
+                  child: OutbreakList(
+                    alerts: _alerts,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

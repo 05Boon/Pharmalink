@@ -375,6 +375,11 @@ class NetworkDataService {
     return _getMap('${ApiConfig.baseUrl}/admin/dashboard');
   }
 
+  static Future<List<Map<String, dynamic>>> getOutbreakAlerts() async {
+    return _getList('${ApiConfig.baseUrl}/admin/outbreak-alerts');
+  }
+
+
   static Future<List<Map<String, dynamic>>> getPharmacies() async {
     return _getList('${ApiConfig.baseUrl}/admin/pharmacies');
   }
