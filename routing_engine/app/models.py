@@ -34,7 +34,7 @@ class PharmacyNode(Base):
     # Geographic coordinates (WGS 84)
     location = Column(Geometry(geometry_type="POINT", srid=4326), nullable=False)
     
-    account_status = Column(String, default="ACTIVE") 
+    account_status = Column(String, default="PENDING") 
     created_at = Column(DateTime, default=utc_now)
 
     # Relationships

@@ -229,6 +229,8 @@ class AdminAreaTopDrugReportItem(BaseModel):
 class AdminGeneratedReport(BaseModel):
     generated_at: datetime
     timeframe_days: int
+    fulfillment_rate: float
+    average_resolution_time_mins: int
     cards: List[AdminReportCard]
     top_requested_drugs: List[AdminTopDrugReportItem]
     top_requested_drugs_by_area: List[AdminAreaTopDrugReportItem]

@@ -281,7 +281,7 @@ async def create_pharmacy_node(
         email=profile.email,
         phone_number=profile.phone_number,
         location=f"SRID=4326;{point_wkt}",
-        account_status="ACTIVE"
+        account_status="PENDING"
     )
     db.add(db_node)
     await db.commit()
@@ -504,9 +504,28 @@ async def generate_admin_report(db: AsyncSession, days: int) -> dict:
         },
     ]
 
+    fulfillment_rate = (fulfilled_requests / total_requests * 100.0) if total_requests > 0 else 0.0
+
+    avg_res_stmt = (
+        select(
+            func.avg(
+                func.extract('epoch', TransactionLog.resolved_at) - 
+                func.extract('epoch', StockRequest.created_at)
+            )
+        )
+        .join(StockRequest, StockRequest.request_id == TransactionLog.request_id)
+        .where(StockRequest.created_at >= start_time)
+        .where(func.upper(StockRequest.request_status) == "FULFILLED")
+    )
+    avg_res_seconds_result = await db.execute(avg_res_stmt)
+    avg_res_seconds = avg_res_seconds_result.scalar() or 0.0
+    average_resolution_time_mins = int(avg_res_seconds / 60)
+
     return {
         "generated_at": now_utc,
         "timeframe_days": days,
+        "fulfillment_rate": fulfillment_rate,
+        "average_resolution_time_mins": average_resolution_time_mins,
         "cards": cards,
         "top_requested_drugs": top_drugs,
         "top_requested_drugs_by_area": top_drugs_by_area,
