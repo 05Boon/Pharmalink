@@ -35,7 +35,7 @@ class StockRequestBase(BaseModel):
     required_quantity: int = Field(..., gt=0, description="Quantity required, must be greater than 0")
     search_radius_meters: int = Field(2000, gt=0, description="Search radius in meters, must be greater than 0")
     therapeutic_class: Optional[str] = Field(None, description="Therapeutic class of the requested drug")
-    reported_symptom: Optional[str] = Field(None, description="Reported symptom associated with the request")
+    shortage_reason: Optional[str] = Field(None, description="Reason for the drug shortage")
 
 class StockRequestCreate(StockRequestBase):
     pharmacy_id: str = Field(..., description="UUID of the requesting pharmacy")
@@ -65,7 +65,7 @@ class StockRequestCreateInput(BaseModel):
     required_quantity: int = Field(..., gt=0, description="Quantity required, must be greater than 0")
     search_radius_meters: Optional[int] = Field(2000, gt=0, description="Search radius in meters, must be greater than 0")
     therapeutic_class: Optional[str] = Field(None, description="Therapeutic class of the requested drug")
-    reported_symptom: Optional[str] = Field(None, description="Reported symptom associated with the request")
+    shortage_reason: Optional[str] = Field(None, description="Reason for the drug shortage")
 
 
 # InventoryItem schemas

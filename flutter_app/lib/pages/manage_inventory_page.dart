@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import '../widgets/app_nav.dart';
 import '../widgets/app_button.dart';
 import '../widgets/app_text_field.dart';
@@ -18,7 +17,6 @@ class _ManageInventoryPageState extends State<ManageInventoryPage> {
 
   final _drugNameController = TextEditingController();
   final _quantityController = TextEditingController();
-  final _categoryController = TextEditingController();
   bool _isAdding = false;
 
   @override
@@ -31,7 +29,6 @@ class _ManageInventoryPageState extends State<ManageInventoryPage> {
   void dispose() {
     _drugNameController.dispose();
     _quantityController.dispose();
-    _categoryController.dispose();
     super.dispose();
   }
 
@@ -119,7 +116,6 @@ class _ManageInventoryPageState extends State<ManageInventoryPage> {
   Future<void> _addItem() async {
     final name = _drugNameController.text.trim();
     final qtyText = _quantityController.text.trim();
-    final category = _categoryController.text.trim();
 
     if (name.isEmpty || qtyText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -141,12 +137,10 @@ class _ManageInventoryPageState extends State<ManageInventoryPage> {
       await NetworkDataService.addInventoryItem({
         'drug_name': name,
         'stock_quantity': qty,
-        'drug_category': category.isEmpty ? 'General' : category,
       });
       
       _drugNameController.clear();
       _quantityController.clear();
-      _categoryController.clear();
       
       await _fetchInventory();
       
@@ -325,10 +319,6 @@ class _ManageInventoryPageState extends State<ManageInventoryPage> {
                             controller: _quantityController,
                             placeholder: 'Initial Quantity',
                             keyboardType: TextInputType.number,
-                          ),
-                          AppTextField(
-                            controller: _categoryController,
-                            placeholder: 'Category (Optional)',
                           ),
                           const SizedBox(height: 8),
                           AppButton(

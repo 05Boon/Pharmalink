@@ -196,6 +196,7 @@ class NetworkDataService {
     required String requestedDrug,
     required int requiredQuantity,
     required int searchRadiusMeters,
+    String? shortageReason,
   }) async {
     return _postMap(
       '${ApiConfig.baseUrl}/broadcasts/request',
@@ -203,6 +204,7 @@ class NetworkDataService {
         'requested_drug': requestedDrug,
         'required_quantity': requiredQuantity,
         'search_radius_meters': searchRadiusMeters * 1000,
+        if (shortageReason != null) 'shortage_reason': shortageReason,
       },
     );
   }

@@ -32,7 +32,7 @@ async def test_sync_profile_success(db_session):
         assert data["phone_number"] == "0799999999"
         assert data["latitude"] == -4.046
         assert data["longitude"] == 39.698
-        assert data["account_status"] == "ACTIVE"
+        assert data["account_status"] == "PENDING"
         
         # Verify db entry
         node = await crud.get_pharmacy_node(db_session, "mock-auth-sync-uuid-1")

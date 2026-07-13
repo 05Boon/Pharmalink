@@ -17,6 +17,16 @@ class _DrugQueryPageState extends State<DrugQueryPage> {
   final _drugNameController = TextEditingController();
   final _quantityController = TextEditingController();
 
+  String? _shortageReason;
+  
+  final List<String> _shortageReasons = [
+    'Routine Restock',
+    'Supply Chain Delay',
+    'Fever/Chills Spike',
+    'Respiratory Spike',
+    'Gastrointestinal Spike',
+  ];
+
   bool _isSubmitting = false;
   String? _errorMessage;
 
@@ -58,6 +68,7 @@ class _DrugQueryPageState extends State<DrugQueryPage> {
         requestedDrug: drugName,
         requiredQuantity: quantity,
         searchRadiusMeters: selectedRadius,
+        shortageReason: _shortageReason,
       );
 
       if (!mounted) return;
@@ -147,6 +158,31 @@ class _DrugQueryPageState extends State<DrugQueryPage> {
                       AppTextField(
                         placeholder: 'Dosage / form (optional)',
                         enabled: !_isSubmitting,
+                      ),
+                      const SizedBox(height: 10),
+                      DropdownButtonFormField<String>(
+                        value: _shortageReason,
+                        decoration: InputDecoration(
+                          hintText: 'Shortage Reason (Optional)',
+                          hintStyle: const TextStyle(fontSize: 14, color: Color(0xFF5F5E5A)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(6),
+                            borderSide: const BorderSide(color: Color(0xFFB4B2A9)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(6),
+                            borderSide: const BorderSide(color: Color(0xFFB4B2A9)),
+                          ),
+                        ),
+                        items: _shortageReasons.map((sym) {
+                          return DropdownMenuItem(value: sym, child: Text(sym, style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A18))));
+                        }).toList(),
+                        onChanged: _isSubmitting ? null : (val) {
+                          setState(() {
+                            _shortageReason = val;
+                          });
+                        },
                       ),
                       if (_errorMessage != null) ...[
                         const SizedBox(height: 8),

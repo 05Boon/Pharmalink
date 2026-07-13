@@ -5,6 +5,8 @@ class StockRequest {
   final String requestId;
   final String pharmacyId;
   final String requestedDrug;
+  final String? therapeuticClass;
+  final String? shortageReason;
   final int requiredQuantity;
   final int searchRadiusMeters;
   final String requestStatus;
@@ -16,6 +18,8 @@ class StockRequest {
     required this.requestId,
     required this.pharmacyId,
     required this.requestedDrug,
+    this.therapeuticClass,
+    this.shortageReason,
     required this.requiredQuantity,
     required this.searchRadiusMeters,
     required this.requestStatus,
@@ -29,6 +33,8 @@ class StockRequest {
       requestId: json['request_id'] as String,
       pharmacyId: json['pharmacy_id'] as String,
       requestedDrug: json['requested_drug'] as String,
+      therapeuticClass: json['therapeutic_class'] as String?,
+      shortageReason: json['shortage_reason'] as String?,
       requiredQuantity: json['required_quantity'] as int,
       searchRadiusMeters: json['search_radius_meters'] as int,
       requestStatus: json['request_status'] as String,
@@ -48,6 +54,8 @@ class StockRequest {
       'request_id': requestId,
       'pharmacy_id': pharmacyId,
       'requested_drug': requestedDrug,
+      if (therapeuticClass != null) 'therapeutic_class': therapeuticClass,
+      if (shortageReason != null) 'shortage_reason': shortageReason,
       'required_quantity': requiredQuantity,
       'search_radius_meters': searchRadiusMeters,
       'request_status': requestStatus,

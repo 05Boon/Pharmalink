@@ -8,6 +8,7 @@ from app.models import StockRequest, AlertNotification, PharmacyNode, InventoryI
 from app import schemas
 import datetime
 import reverse_geocoder as rg
+from app.utils.drug_mapper import get_category
 
 async def create_stock_request(db: AsyncSession, request: schemas.StockRequestCreate) -> StockRequest:
     """
@@ -16,10 +17,11 @@ async def create_stock_request(db: AsyncSession, request: schemas.StockRequestCr
     db_request = StockRequest(
         pharmacy_id=request.pharmacy_id,
         requested_drug=request.requested_drug,
+        drug_category=get_category(request.requested_drug),
         required_quantity=request.required_quantity,
         search_radius_meters=request.search_radius_meters,
         therapeutic_class=request.therapeutic_class,
-        reported_symptom=request.reported_symptom
+        shortage_reason=request.shortage_reason
     )
     db.add(db_request)
     await db.commit()
@@ -201,13 +203,12 @@ async def create_or_update_inventory_item(
     
     if db_item:
         db_item.stock_quantity = item.stock_quantity
-        if item.drug_category:
-            db_item.drug_category = item.drug_category
+        db_item.drug_category = get_category(item.drug_name)
     else:
         db_item = InventoryItem(
             pharmacy_id=pharmacy_id,
             drug_name=item.drug_name,
-            drug_category=item.drug_category,
+            drug_category=get_category(item.drug_name),
             stock_quantity=item.stock_quantity
         )
         db.add(db_item)
