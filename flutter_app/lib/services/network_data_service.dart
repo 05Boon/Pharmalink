@@ -396,4 +396,16 @@ class NetworkDataService {
   static Future<List<Map<String, dynamic>>> getAuditLogs() async {
     return _getList('${ApiConfig.baseUrl}/admin/logs');
   }
+
+  static Future<Map<String, dynamic>> getPharmacyProfile() async {
+    final response = await _dio.get('${ApiConfig.baseUrl}/profile');
+    _throwForBadStatus(response);
+    return _normalizeResponseData(response.data) as Map<String, dynamic>? ?? {};
+  }
+
+  static Future<Map<String, dynamic>> updatePharmacyProfile(Map<String, dynamic> data) async {
+    final response = await _dio.patch('${ApiConfig.baseUrl}/profile', data: data);
+    _throwForBadStatus(response);
+    return _normalizeResponseData(response.data) as Map<String, dynamic>? ?? {};
+  }
 }
