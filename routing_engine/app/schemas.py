@@ -252,6 +252,8 @@ class AdminGeneratedReport(BaseModel):
     timeframe_days: int
     fulfillment_rate: float
     average_resolution_time_mins: int
+    top_supplying_node: str = "N/A"
+    high_demand_anomaly: str = "N/A"
     cards: List[AdminReportCard]
     top_requested_drugs: List[AdminTopDrugReportItem]
     top_requested_drugs_by_area: List[AdminAreaTopDrugReportItem]

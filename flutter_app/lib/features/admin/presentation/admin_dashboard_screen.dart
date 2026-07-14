@@ -255,49 +255,79 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final activePharmacies = _pharmacies.where((p) => p.accountStatus.toUpperCase() == 'ACTIVE').length;
     final totalOutbreakRequests = _outbreaks.fold<int>(0, (sum, item) => sum + item.requestFrequency);
     
-    final fulfillmentRate = _report?['fulfillment_rate'] as double? ?? 0.0;
-    final avgResTime = _report?['average_resolution_time_mins'] as int? ?? 0;
+    final fulfillmentRate = (_report?['fulfillment_rate'] as num?)?.toDouble() ?? 0.0;
+    final avgResTime = (_report?['average_resolution_time_mins'] as num?)?.toInt() ?? 0;
+    final topSupplier = _report?['top_supplying_node'] as String? ?? 'N/A';
+    final criticalDemand = _report?['high_demand_anomaly'] as String? ?? 'N/A';
 
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: _MetricCard(
-            title: 'Active Nodes',
-            value: '$activePharmacies',
-            subtitle: '${_pharmacies.length} Total Registered',
-            color: const Color(0xFFE2F3EE),
-            textColor: const Color(0xFF0F6E56),
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: _MetricCard(
+                title: 'Network Health',
+                value: '$activePharmacies/${_pharmacies.length}',
+                subtitle: 'Active Nodes',
+                color: const Color(0xFFE2F3EE),
+                textColor: const Color(0xFF0F6E56),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _MetricCard(
+                title: 'Outbreak Clusters',
+                value: '${_outbreaks.length}',
+                subtitle: '$totalOutbreakRequests total requests',
+                color: const Color(0xFFFFF6E5),
+                textColor: const Color(0xFFC07000),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _MetricCard(
+                title: 'Fulfillment Rate',
+                value: '${fulfillmentRate.toStringAsFixed(1)}%',
+                subtitle: 'Overall system fulfillment',
+                color: const Color(0xFFEAF2FF),
+                textColor: const Color(0xFF1E40AF),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _MetricCard(
-            title: 'Outbreak Clusters',
-            value: '${_outbreaks.length}',
-            subtitle: '$totalOutbreakRequests total requests',
-            color: const Color(0xFFFFF6E5),
-            textColor: const Color(0xFFC07000),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _MetricCard(
-            title: 'Fulfillment Rate',
-            value: '${fulfillmentRate.toStringAsFixed(1)}%',
-            subtitle: 'Overall system fulfillment',
-            color: const Color(0xFFEAF2FF),
-            textColor: const Color(0xFF1E40AF),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _MetricCard(
-            title: 'Avg Resolution',
-            value: '$avgResTime m',
-            subtitle: 'Average time to fulfill',
-            color: const Color(0xFFF3E8FF),
-            textColor: const Color(0xFF6B21A8),
-          ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _MetricCard(
+                title: 'Avg Resolution',
+                value: '$avgResTime m',
+                subtitle: 'Average time to fulfill',
+                color: const Color(0xFFF3E8FF),
+                textColor: const Color(0xFF6B21A8),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _MetricCard(
+                title: 'Top Supplier',
+                value: topSupplier,
+                subtitle: 'Highest fulfillment count',
+                color: const Color(0xFFE6FFFA),
+                textColor: const Color(0xFF047857),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _MetricCard(
+                title: 'Critical Demand',
+                value: criticalDemand,
+                subtitle: 'Most requested drug',
+                color: const Color(0xFFFFE4E6),
+                textColor: const Color(0xFFBE123C),
+              ),
+            ),
+          ],
         ),
       ],
     );

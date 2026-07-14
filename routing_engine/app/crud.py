@@ -572,11 +572,28 @@ async def generate_admin_report(db: AsyncSession, days: int) -> dict:
     avg_res_seconds = avg_res_seconds_result.scalar() or 0.0
     average_resolution_time_mins = int(avg_res_seconds / 60)
 
+    top_supplier_stmt = (
+        select(PharmacyNode.business_name, func.count(AlertNotification.alert_id).label("supply_count"))
+        .join(PharmacyNode, AlertNotification.receiving_pharmacy_id == PharmacyNode.pharmacy_id)
+        .where(AlertNotification.delivered_at >= start_time)
+        .where(AlertNotification.alert_status == "ACCEPTED")
+        .group_by(PharmacyNode.business_name)
+        .order_by(func.count(AlertNotification.alert_id).desc())
+        .limit(1)
+    )
+    top_supplier_result = await db.execute(top_supplier_stmt)
+    top_supplier_row = top_supplier_result.first()
+    top_supplying_node = top_supplier_row.business_name if top_supplier_row else "N/A"
+
+    high_demand_anomaly = top_drugs[0]["drug_name"] if top_drugs else "N/A"
+
     return {
         "generated_at": now_utc,
         "timeframe_days": days,
         "fulfillment_rate": fulfillment_rate,
         "average_resolution_time_mins": average_resolution_time_mins,
+        "top_supplying_node": top_supplying_node,
+        "high_demand_anomaly": high_demand_anomaly,
         "cards": cards,
         "top_requested_drugs": top_drugs,
         "top_requested_drugs_by_area": top_drugs_by_area,
