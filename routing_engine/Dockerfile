@@ -30,5 +30,5 @@ ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8000
 
-# Server is started via docker-compose configuration command to run create_tables.py first
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Server is started via shell form to allow variable expansion for Render
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}

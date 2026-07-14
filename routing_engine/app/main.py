@@ -80,6 +80,10 @@ app.include_router(admin_router, prefix="/api/v1")
 def read_root():
     return {"status": "healthy", "service": "Pharmalink Routing Engine"}
 
+@app.get("/healthz")
+def healthz():
+    return {"status": "ok"}
+
 @app.websocket("/ws")
 async def websocket_endpoint(
     websocket: WebSocket,

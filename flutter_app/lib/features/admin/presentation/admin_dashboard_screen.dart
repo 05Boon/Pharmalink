@@ -65,20 +65,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         _alerts = rawAlerts.map((e) => OutbreakAlert.fromJson(e)).toList();
         
         _reportErrorMessage = null;
-      } else {
-        _reportErrorMessage =
-            'Report data unavailable right now. You can still view pharmacies and outbreaks.';
-      }
-
-      _errorMessage = (pharmacies.isEmpty &&
-              outbreaks.isEmpty &&
-              report == null &&
-              sectionErrors.isNotEmpty)
-          ? 'Failed to load dashboard data: ${sectionErrors.join(' | ')}'
-          : null;
-
-      _isLoading = false;
-    });
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Failed to load dashboard data: ${e.toString()}';
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _generateReport() async {
