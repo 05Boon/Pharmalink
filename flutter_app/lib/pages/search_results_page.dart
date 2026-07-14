@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import '../widgets/app_nav.dart';
 import '../services/network_data_service.dart';
 
@@ -10,6 +9,8 @@ class SearchResultsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // This screen does not create requests. The broadcast is already sent from
+    // DrugQueryPage via NetworkDataService.createStockRequestAndBroadcast().
     final effectiveQuery = (query == null || query!.trim().isEmpty)
         ? 'Amoxicillin 500mg'
         : query!.trim();
@@ -55,6 +56,26 @@ class SearchResultsPage extends StatelessWidget {
                             color: Color(0xFF5F5E5A),
                           ),
                         ),
+                        const SizedBox(height: 8),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE1F5EE),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            'Requests have already been sent automatically to nearby pharmacies.',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF085041),
+                            ),
+                          ),
+                        ),
                         const SizedBox(height: 12),
                         if (snapshot.connectionState == ConnectionState.waiting)
                           const Center(child: CircularProgressIndicator()),
@@ -98,20 +119,25 @@ class SearchResultsPage extends StatelessWidget {
                                             color: Color(0xFF1D9E75),
                                           ),
                                         ),
-                                        ElevatedButton(
-                                          onPressed: () =>
-                                              context.go('/search/response'),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor:
-                                                const Color(0xFF1D9E75),
-                                            foregroundColor:
-                                                const Color(0xFF04342C),
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 12, vertical: 4),
-                                            textStyle:
-                                                const TextStyle(fontSize: 10),
+                                        Container(
+                                          // Requests are already broadcast from
+                                          // DrugQueryPage; this list is read-only
+                                          // visibility of nearby matches.
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 10, vertical: 6),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFE1F5EE),
+                                            borderRadius:
+                                                BorderRadius.circular(6),
                                           ),
-                                          child: const Text('Request'),
+                                          child: const Text(
+                                            'Request sent',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w600,
+                                              color: Color(0xFF085041),
+                                            ),
+                                          ),
                                         ),
                                       ],
                                     ),
