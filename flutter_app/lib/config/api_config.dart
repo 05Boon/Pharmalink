@@ -3,7 +3,8 @@ class ApiConfig {
 
   static const String _rawBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://pharmalink-kvrt.onrender.com/api/v1',
+    // defaultValue: 'https://pharmalink-kvrt.onrender.com/api/v1',
+    defaultValue: 'http://localhost:8000/api/v1',
   );
 
   static String get baseUrl {

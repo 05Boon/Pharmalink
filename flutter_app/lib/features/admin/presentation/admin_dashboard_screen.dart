@@ -8,8 +8,7 @@ import '../../../services/network_data_service.dart';
 import '../../../models/outbreak_alert.dart';
 import 'widgets/outbreak_map.dart';
 import 'widgets/outbreak_list.dart';
-
-class AdminDashboardScreen extends StatefulWidget {
+import 'widgets/regional_demand_chart.dart';class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
 
   @override
@@ -33,7 +32,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   bool _isLoading = true;
   bool _isGeneratingReport = false;
   String? _errorMessage;
-  String? _reportErrorMessage;
 
   @override
   void initState() {
@@ -64,7 +62,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         final rawAlerts = results[3] as List<Map<String, dynamic>>;
         _alerts = rawAlerts.map((e) => OutbreakAlert.fromJson(e)).toList();
         
-        _reportErrorMessage = null;
         _isLoading = false;
       });
     } catch (e) {
@@ -78,7 +75,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Future<void> _generateReport() async {
     setState(() {
       _isGeneratingReport = true;
-      _reportErrorMessage = null;
     });
 
     try {
@@ -103,90 +99,31 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         );
       } catch (downloadError) {
         if (!mounted) return;
-        setState(() {
-          _reportErrorMessage =
-              'Report generated, but download failed: ${downloadError.toString()}';
-        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Report generated, but download failed: ${downloadError.toString()}'),
+            backgroundColor: const Color(0xFFB91C1C),
+          ),
+        );
       }
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _reportErrorMessage = 'Failed to generate report: ${e.toString()}';
-      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to generate report: ${e.toString()}'),
+          backgroundColor: const Color(0xFFB91C1C),
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() {
           _isGeneratingReport = false;
         });
       }
-      if (mounted) {
-        setState(() {
-          _isGeneratingReport = false;
-        });
-      }
     }
   }
 
-  Future<void> _togglePharmacyStatus(PharmacyNode node) async {
-    final currentStatus = node.accountStatus;
-    final nextStatus = currentStatus.toUpperCase() == 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
-    
-    // Optimistic UI update
-    setState(() {
-      final idx = _pharmacies.indexWhere((p) => p.pharmacyId == node.pharmacyId);
-      if (idx != -1) {
-        _pharmacies[idx] = PharmacyNode(
-          pharmacyId: node.pharmacyId,
-          businessName: node.businessName,
-          licenseNumber: node.licenseNumber,
-          email: node.email,
-          phoneNumber: node.phoneNumber,
-          latitude: node.latitude,
-          longitude: node.longitude,
-          accountStatus: nextStatus, // Toggle status locally
-          createdAt: node.createdAt,
-        );
-      }
-    });
 
-    try {
-      final updatedNode = await AdminService.updatePharmacyStatus(node.pharmacyId, nextStatus);
-      
-      // Update UI with exact node from server
-      setState(() {
-        final idx = _pharmacies.indexWhere((p) => p.pharmacyId == node.pharmacyId);
-        if (idx != -1) {
-          _pharmacies[idx] = updatedNode;
-        }
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${node.businessName} account status set to $nextStatus'),
-            backgroundColor: nextStatus == 'ACTIVE' ? const Color(0xFF0F6E56) : const Color(0xFFB91C1C),
-          ),
-        );
-      }
-    } catch (e) {
-      // Revert on error
-      setState(() {
-        final idx = _pharmacies.indexWhere((p) => p.pharmacyId == node.pharmacyId);
-        if (idx != -1) {
-          _pharmacies[idx] = node;
-        }
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to update status: ${e.toString()}'),
-            backgroundColor: const Color(0xFFB91C1C),
-          ),
-        );
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -220,24 +157,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ],
                         ),
                       )
-                    : SingleChildScrollView(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildDashboardHeader(),
-                            const SizedBox(height: 16),
-                            _buildMetricsRow(),
-                            const SizedBox(height: 20),
-                            _buildReportsPanel(),
-                            const SizedBox(height: 20),
-                            // Keep the geospatial map full-width for better readability.
-                            _buildOutbreaksPanel(),
-                            const SizedBox(height: 16),
-                            _buildPharmaciesPanel(),
-                          ],
+                      : SingleChildScrollView(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildDashboardHeader(),
+                              const SizedBox(height: 16),
+                              _buildMetricsRow(),
+                              const SizedBox(height: 20),
+                              _buildRegionalDemandPanel(),
+                              const SizedBox(height: 20),
+                              // Keep the geospatial map full-width for better readability.
+                              _buildOutbreaksPanel(),
+                            ],
+                          ),
                         ),
-                      ),
           ),
         ],
       ),
@@ -317,18 +252,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildMetricsRow() {
-    // Derived summary counters shown as top-level operational KPIs.
     final activePharmacies = _pharmacies.where((p) => p.accountStatus.toUpperCase() == 'ACTIVE').length;
-    final suspendedPharmacies = _pharmacies.length - activePharmacies;
     final totalOutbreakRequests = _outbreaks.fold<int>(0, (sum, item) => sum + item.requestFrequency);
+    
+    final fulfillmentRate = _report?['fulfillment_rate'] as double? ?? 0.0;
+    final avgResTime = _report?['average_resolution_time_mins'] as int? ?? 0;
 
     return Row(
       children: [
         Expanded(
           child: _MetricCard(
-            title: 'Registered Nodes',
-            value: '${_pharmacies.length}',
-            subtitle: '$activePharmacies Active | $suspendedPharmacies Suspended',
+            title: 'Active Nodes',
+            value: '$activePharmacies',
+            subtitle: '${_pharmacies.length} Total Registered',
             color: const Color(0xFFE2F3EE),
             textColor: const Color(0xFF0F6E56),
           ),
@@ -338,9 +274,29 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           child: _MetricCard(
             title: 'Outbreak Clusters',
             value: '${_outbreaks.length}',
-            subtitle: '$totalOutbreakRequests total requests logged',
+            subtitle: '$totalOutbreakRequests total requests',
             color: const Color(0xFFFFF6E5),
             textColor: const Color(0xFFC07000),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _MetricCard(
+            title: 'Fulfillment Rate',
+            value: '${fulfillmentRate.toStringAsFixed(1)}%',
+            subtitle: 'Overall system fulfillment',
+            color: const Color(0xFFEAF2FF),
+            textColor: const Color(0xFF1E40AF),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _MetricCard(
+            title: 'Avg Resolution',
+            value: '$avgResTime m',
+            subtitle: 'Average time to fulfill',
+            color: const Color(0xFFF3E8FF),
+            textColor: const Color(0xFF6B21A8),
           ),
         ),
       ],
@@ -406,267 +362,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildReportsPanel() {
-    // Normalize dynamic payload into strongly typed maps used by report widgets.
-    final cards = (_report?['cards'] as List?)
+  Widget _buildRegionalDemandPanel() {
+    final regionalData = (_report?['top_requested_drugs_by_area'] as List?)
         ?.whereType<Map>()
         .map((item) => Map<String, dynamic>.from(item))
-            .toList() ??
-        const <Map<String, dynamic>>[];
-    final topDrugs = (_report?['top_requested_drugs'] as List?)
-        ?.whereType<Map>()
-        .map((item) => Map<String, dynamic>.from(item))
-            .toList() ??
-        const <Map<String, dynamic>>[];
-    final topDrugsByArea = (_report?['top_requested_drugs_by_area'] as List?)
-      ?.whereType<Map>()
-      .map((item) => Map<String, dynamic>.from(item))
-        .toList() ??
-      const <Map<String, dynamic>>[];
-
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0x80B4B2A9)),
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.assessment_outlined, color: Color(0xFF0F6E56), size: 18),
-              SizedBox(width: 6),
-              Text(
-                'Generated Reports',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF1A1A18),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Generated at: ${_formatGeneratedAt(_report?['generated_at'])}',
-            style: const TextStyle(fontSize: 10, color: Color(0xFF5F5E5A)),
-          ),
-          if (_reportErrorMessage != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              _reportErrorMessage!,
-              style: const TextStyle(fontSize: 10, color: Color(0xFFB91C1C)),
-            ),
-          ],
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: cards
-                .map(
-                  (card) => _AdminReportCard(
-                    title: '${card['title'] ?? '-'}',
-                    description: '${card['description'] ?? '-'}',
-                    icon: _reportIcon('${card['icon'] ?? ''}'),
-                  ),
-                )
-                .toList(),
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            'Top Requested Drugs',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF1A1A18),
-            ),
-          ),
-          const SizedBox(height: 6),
-          if (topDrugs.isEmpty)
-            const Text(
-              'No drug requests found for this timeframe.',
-              style: TextStyle(fontSize: 10, color: Color(0xFF5F5E5A)),
-            ),
-          ...topDrugs.map(
-            (item) => Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Text(
-                '${item['drug_name'] ?? '-'}: ${item['request_count'] ?? 0} request(s)',
-                style: const TextStyle(fontSize: 10, color: Color(0xFF1A1A18)),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            'Most Requested Drug by Area',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF1A1A18),
-            ),
-          ),
-          const SizedBox(height: 6),
-          if (topDrugsByArea.isEmpty)
-            const Text(
-              'No area-level demand pattern found for this timeframe.',
-              style: TextStyle(fontSize: 10, color: Color(0xFF5F5E5A)),
-            ),
-          ...topDrugsByArea.map(
-            (item) => Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Text(
-                '${item['area_label'] ?? '-'}: ${item['top_drug'] ?? '-'} '
-                '(${item['request_count'] ?? 0}/${item['total_requests_in_area'] ?? 0} requests)',
-                style: const TextStyle(fontSize: 10, color: Color(0xFF1A1A18)),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatGeneratedAt(dynamic value) {
-    // Keep timestamp display compact for small dashboard panels.
-    final raw = '${value ?? ''}';
-    if (raw.length >= 16) {
-      return raw.replaceFirst('T', ' ').substring(0, 16);
-    }
-    return raw.isEmpty ? '-' : raw;
-  }
-
-  IconData _reportIcon(String iconName) {
-    // Maps backend icon names to Material icons.
-    switch (iconName) {
-      case 'bar_chart':
-        return Icons.bar_chart;
-      case 'assessment':
-        return Icons.assessment;
-      case 'medication':
-        return Icons.medication;
-      default:
-        return Icons.description;
-    }
-  }
-
-  Widget _buildPharmaciesPanel() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0x80B4B2A9)),
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.local_pharmacy_outlined, color: Color(0xFF0F6E56), size: 18),
-              SizedBox(width: 6),
-              Text(
-                'Network Nodes & Status Control',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF1A1A18),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          if (_pharmacies.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
-              child: Center(
-                child: Text(
-                  'No pharmacy nodes registered.',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF5F5E5A)),
-                ),
-              ),
-            )
-          else
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DataTable(
-                columnSpacing: 20,
-                horizontalMargin: 0,
-                columns: const [
-                  DataColumn(label: Text('Business Name', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('License No.', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('Contact', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('Account Status', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('Actions', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                ],
-                rows: _pharmacies.map((p) {
-                  final isActive = p.accountStatus.toUpperCase() == 'ACTIVE';
-                  return DataRow(
-                    cells: [
-                      DataCell(
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(p.businessName, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
-                            const SizedBox(height: 2),
-                            Text('Loc: [${p.latitude.toStringAsFixed(4)}, ${p.longitude.toStringAsFixed(4)}]', style: const TextStyle(fontSize: 9, color: Color(0xFF5F5E5A))),
-                          ],
-                        ),
-                      ),
-                      DataCell(Text(p.licenseNumber, style: const TextStyle(fontSize: 11))),
-                      DataCell(
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(p.email, style: const TextStyle(fontSize: 10)),
-                            Text(p.phoneNumber, style: const TextStyle(fontSize: 10, color: Color(0xFF5F5E5A))),
-                          ],
-                        ),
-                      ),
-                      DataCell(
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: isActive ? const Color(0xFFE2F3EE) : const Color(0xFFFEE2E2),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            p.accountStatus,
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                              color: isActive ? const Color(0xFF0F6E56) : const Color(0xFFB91C1C),
-                            ),
-                          ),
-                        ),
-                      ),
-                      DataCell(
-                        Row(
-                          children: [
-                             Switch(
-                              value: isActive,
-                              activeThumbColor: const Color(0xFF0F6E56),
-                              inactiveThumbColor: const Color(0xFFB91C1C),
-                              inactiveTrackColor: const Color(0xFFFEE2E2),
-                              onChanged: (val) {
-                                _togglePharmacyStatus(p);
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  );
-                }).toList(),
-              ),
-            ),
-        ],
-      ),
-    );
+        .toList() ?? [];
+    return RegionalDemandChart(demandData: regionalData);
   }
 }
 
@@ -709,58 +410,6 @@ class _MetricCard extends StatelessWidget {
           Text(
             subtitle,
             style: TextStyle(fontSize: 10, color: textColor.withAlpha(204)),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AdminReportCard extends StatelessWidget {
-  final String title;
-  final String description;
-  final IconData icon;
-
-  const _AdminReportCard({
-    required this.title,
-    required this.description,
-    required this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 280,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF1EFEA),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: const Color(0xFF1D9E75), size: 24),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF1A1A18),
-                  ),
-                ),
-                Text(
-                  description,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: Color(0xFF5F5E5A),
-                  ),
-                ),
-              ],
-            ),
           ),
         ],
       ),

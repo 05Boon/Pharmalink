@@ -5,7 +5,7 @@ from sqlalchemy import func
 from typing import List
 
 from app.database import get_db
-from app.dependencies import get_current_user_uuid
+from app.dependencies import get_current_user_uuid, get_current_admin
 from app.models import PharmacyNode, InventoryItem
 from app import crud
 from app import schemas
@@ -110,18 +110,17 @@ async def update_my_profile(
 )
 async def search_drugs(
     query: str = Query(..., min_length=1),
-    pharmacy_id: str = Depends(get_current_user_uuid),
+    admin=Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Searches inventory across pharmacies for drug names matching the query.
-    Excludes the authenticated pharmacy from results.
+    Restricted to Admin Dashboard to prevent leakage of inventory levels.
     """
-    # Owner search flow: browse nearby inventory candidates before/after request broadcasts.
     return await crud.search_drugs(
         db,
         query=query.strip(),
-        exclude_pharmacy_id=pharmacy_id,
+        exclude_pharmacy_id=None
     )
 
 # --- Inventory Endpoints ---
@@ -317,6 +316,10 @@ async def create_request_and_broadcast(
             "created_at": db_request.created_at.isoformat(),
         },
     )
+        
+    if alerted_count == 0:
+        db_request.request_status = "NO MATCHES"
+        await db.commit()
         
     # 5. Fetch and return StockRequest with eagerly loaded Alert relationship
     return await crud.get_stock_request(db, db_request.request_id)

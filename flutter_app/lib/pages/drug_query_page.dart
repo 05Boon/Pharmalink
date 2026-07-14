@@ -64,7 +64,7 @@ class _DrugQueryPageState extends State<DrugQueryPage> {
     });
 
     try {
-      await NetworkDataService.createStockRequestAndBroadcast(
+      final response = await NetworkDataService.createStockRequestAndBroadcast(
         requestedDrug: drugName,
         requiredQuantity: quantity,
         searchRadiusMeters: selectedRadius,
@@ -72,8 +72,32 @@ class _DrugQueryPageState extends State<DrugQueryPage> {
       );
 
       if (!mounted) return;
-      final encoded = Uri.encodeQueryComponent(drugName);
-      context.go('/search/results?q=$encoded');
+      
+      final alerts = response['alerts'] as List? ?? [];
+      final status = response['request_status'] as String? ?? '';
+
+      if (alerts.isNotEmpty || status != 'NO MATCHES') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Matches found, request broadcasted to ${alerts.length} pharmacies.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No matches found. Request status updated to NO MATCHES.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+
+      // Reset form
+      _drugNameController.clear();
+      _quantityController.clear();
+      setState(() {
+        _shortageReason = null;
+      });
     } catch (_) {
       if (!mounted) return;
       setState(() {

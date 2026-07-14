@@ -6,6 +6,7 @@ class PharmacyNode {
   final String phoneNumber;
   final double latitude;
   final double longitude;
+  final String generalLocation;
   final String accountStatus;
   final DateTime createdAt;
 
@@ -17,6 +18,7 @@ class PharmacyNode {
     required this.phoneNumber,
     required this.latitude,
     required this.longitude,
+    required this.generalLocation,
     required this.accountStatus,
     required this.createdAt,
   });
@@ -30,6 +32,7 @@ class PharmacyNode {
       phoneNumber: json['phone_number'] as String,
       latitude: (json['latitude'] as num).toDouble(),
       longitude: (json['longitude'] as num).toDouble(),
+      generalLocation: json['general_location'] as String? ?? 'Unknown Location',
       accountStatus: json['account_status'] as String,
       createdAt: DateTime.parse(json['created_at'] as String),
     );
@@ -44,6 +47,7 @@ class PharmacyNode {
       'phone_number': phoneNumber,
       'latitude': latitude,
       'longitude': longitude,
+      'general_location': generalLocation,
       'account_status': accountStatus,
       'created_at': createdAt.toIso8601String(),
     };

@@ -18,7 +18,7 @@ class ConnectionManager:
         self.active_connections: Dict[str, Set[WebSocket]] = {}
 
     async def connect(self, websocket: WebSocket, pharmacy_id: str):
-        await websocket.accept()
+        # Already accepted in endpoint
         if pharmacy_id not in self.active_connections:
             self.active_connections[pharmacy_id] = set()
         self.active_connections[pharmacy_id].add(websocket)
@@ -89,13 +89,18 @@ async def websocket_endpoint(
     websocket: WebSocket,
     token: str = Query(..., description="JWT token or mock pharmacy UUID")
 ):
+    await websocket.accept()
     pharmacy_id = await resolve_token(token)
     if not pharmacy_id:
         logger.warning("Rejected WebSocket connection: Invalid token.")
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
         
-    await manager.connect(websocket, pharmacy_id)
+    if pharmacy_id not in manager.active_connections:
+        manager.active_connections[pharmacy_id] = set()
+    manager.active_connections[pharmacy_id].add(websocket)
+    logger.info(f"WebSocket connected for pharmacy: {pharmacy_id}. Active connections: {len(manager.active_connections[pharmacy_id])}")
+    
     try:
         while True:
             # Keep the connection open and listen for heartbeat/messages from the client

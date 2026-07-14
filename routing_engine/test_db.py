@@ -1,18 +1,20 @@
 import asyncio
-from sqlalchemy import text
-from database import engine
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+from app.settings import TEST_DATABASE_URL
+from app.crud import generate_admin_report
 
-async def test_connection():
-    try:
-        async with engine.connect() as conn:
-            # Ask the database to output its version to confirm it is awake
-            result = await conn.execute(text("SELECT PostGIS_Version();"))
-            version = result.scalar()
-            print("\nCONNECTION SUCCESSFUL!")
-            print(f"PostGIS version running in Docker: {version}\n")
-    except Exception as e:
-        print("\nCONNECTION FAILED!")
-        print(f"Error details: {e}\n")
+async def main():
+    engine = create_async_engine(TEST_DATABASE_URL)
+    async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    
+    async with async_session() as db:
+        try:
+            report = await generate_admin_report(db, 7)
+            print("SUCCESS")
+            print(report.get("top_requested_drugs_by_area", []))
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
 
-if __name__ == "__main__":
-    asyncio.run(test_connection())
+asyncio.run(main())

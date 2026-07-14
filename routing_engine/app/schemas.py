@@ -148,6 +148,7 @@ class OutbreakAnalytic(BaseModel):
     request_frequency: int
     centroid_latitude: float
     centroid_longitude: float
+    region_name: str
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -209,7 +210,9 @@ class AdminTransactionResponse(BaseModel):
     sender: str = Field(..., alias="from")
     receiver: str = Field(..., alias="to")
     drug: str = Field(..., alias="drug")
+    quantity: int = Field(..., alias="quantity")
     status: str
+    time: datetime = Field(..., alias="time")
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
@@ -237,11 +240,10 @@ class AdminTopDrugReportItem(BaseModel):
 
 class AdminAreaTopDrugReportItem(BaseModel):
     area_label: str
-    area_latitude: float
-    area_longitude: float
     top_drug: str
     request_count: int
     total_requests_in_area: int
+    percentage: float
 
 
 # Full report envelope returned by the generate-report endpoint.

@@ -396,13 +396,13 @@ async def get_outbreaks_analytics(db: AsyncSession, days: int) -> List[dict]:
         select(
             StockRequest.requested_drug,
             func.count(StockRequest.request_id).label("request_frequency"),
-            # Compute a centroid from grouped request locations for map visualization.
-            func.ST_X(func.ST_Centroid(func.ST_Collect(PharmacyNode.location))).label("centroid_longitude"),
-            func.ST_Y(func.ST_Centroid(func.ST_Collect(PharmacyNode.location))).label("centroid_latitude")
+            func.ST_X(PharmacyNode.location).label("centroid_longitude"),
+            func.ST_Y(PharmacyNode.location).label("centroid_latitude"),
+            PharmacyNode.general_location.label("region_name")
         )
         .join(PharmacyNode, StockRequest.pharmacy_id == PharmacyNode.pharmacy_id)
         .where(StockRequest.created_at >= start_time)
-        .group_by(StockRequest.requested_drug)
+        .group_by(StockRequest.requested_drug, PharmacyNode.location, PharmacyNode.general_location)
     )
     
     result = await db.execute(stmt)
@@ -413,7 +413,8 @@ async def get_outbreaks_analytics(db: AsyncSession, days: int) -> List[dict]:
             "requested_drug": row.requested_drug,
             "request_frequency": row.request_frequency,
             "centroid_longitude": row.centroid_longitude if row.centroid_longitude is not None else 0.0,
-            "centroid_latitude": row.centroid_latitude if row.centroid_latitude is not None else 0.0
+            "centroid_latitude": row.centroid_latitude if row.centroid_latitude is not None else 0.0,
+            "region_name": row.region_name if row.region_name is not None else "Unknown Region"
         }
         for row in rows
     ]
@@ -437,9 +438,10 @@ async def generate_admin_report(db: AsyncSession, days: int) -> dict:
         select(func.count(StockRequest.request_id)).where(StockRequest.created_at >= start_time)
     )
     fulfilled_requests_result = await db.execute(
-        select(func.count(StockRequest.request_id))
+        select(func.count(TransactionLog.log_id))
+        .join(StockRequest, StockRequest.request_id == TransactionLog.request_id)
         .where(StockRequest.created_at >= start_time)
-        .where(func.upper(StockRequest.request_status) == "FULFILLED")
+        .where(func.upper(TransactionLog.final_outcome) == "FULFILLED_BY_NEIGHBOR")
     )
     total_transactions_result = await db.execute(
         select(func.count(TransactionLog.log_id)).where(TransactionLog.resolved_at >= start_time)
@@ -475,27 +477,20 @@ async def generate_admin_report(db: AsyncSession, days: int) -> dict:
         for row in top_drugs_result.all()
     ]
 
-    # Build area-level demand intelligence on an ~11km grid (0.1 degrees).
-    area_lat = func.round(cast(func.ST_Y(PharmacyNode.location), Numeric), 1).label("area_lat")
-    area_lon = func.round(cast(func.ST_X(PharmacyNode.location), Numeric), 1).label("area_lon")
-    
     area_demand_stmt = (
         select(
-            area_lat,
-            area_lon,
+            func.coalesce(PharmacyNode.general_location, "Unknown Region").label("area_label"),
             StockRequest.requested_drug.label("drug_name"),
             func.count(StockRequest.request_id).label("request_count"),
         )
         .join(PharmacyNode, StockRequest.pharmacy_id == PharmacyNode.pharmacy_id)
         .where(StockRequest.created_at >= start_time)
         .group_by(
-            area_lat,
-            area_lon,
+            PharmacyNode.general_location,
             StockRequest.requested_drug
         )
         .order_by(
-            area_lat.asc(),
-            area_lon.asc(),
+            PharmacyNode.general_location.asc(),
             func.count(StockRequest.request_id).desc(),
             StockRequest.requested_drug.asc(),
         )
@@ -503,31 +498,31 @@ async def generate_admin_report(db: AsyncSession, days: int) -> dict:
     area_demand_result = await db.execute(area_demand_stmt)
     area_rows = area_demand_result.all()
 
-    area_totals: dict[tuple[float, float], int] = {}
-    area_top_drug: dict[tuple[float, float], dict] = {}
+    area_totals: dict[str, int] = {}
+    area_top_drug: dict[str, dict] = {}
+    
     for row in area_rows:
-        lat = float(row.area_lat or 0.0)
-        lon = float(row.area_lon or 0.0)
-        key = (lat, lon)
+        key = row.area_label
         count = int(row.request_count or 0)
 
         area_totals[key] = area_totals.get(key, 0) + count
         if key not in area_top_drug:
             area_top_drug[key] = {
-                "area_label": f"Lat {lat:.1f}, Lon {lon:.1f}",
-                "area_latitude": lat,
-                "area_longitude": lon,
+                "area_label": key,
                 "top_drug": row.drug_name,
                 "request_count": count,
             }
 
-    top_drugs_by_area = [
-        {
+    top_drugs_by_area = []
+    for item in area_top_drug.values():
+        total = area_totals.get(item["area_label"], 0)
+        percentage = (item["request_count"] / total * 100.0) if total > 0 else 0.0
+        top_drugs_by_area.append({
             **item,
-            "total_requests_in_area": area_totals.get((item["area_latitude"], item["area_longitude"]), 0),
-        }
-        for item in area_top_drug.values()
-    ]
+            "total_requests_in_area": total,
+            "percentage": round(percentage, 1)
+        })
+
     top_drugs_by_area.sort(
         key=lambda item: (
             -int(item["total_requests_in_area"]),
@@ -571,7 +566,7 @@ async def generate_admin_report(db: AsyncSession, days: int) -> dict:
         )
         .join(StockRequest, StockRequest.request_id == TransactionLog.request_id)
         .where(StockRequest.created_at >= start_time)
-        .where(func.upper(StockRequest.request_status) == "FULFILLED")
+        .where(func.upper(TransactionLog.final_outcome) == "FULFILLED_BY_NEIGHBOR")
     )
     avg_res_seconds_result = await db.execute(avg_res_stmt)
     avg_res_seconds = avg_res_seconds_result.scalar() or 0.0
@@ -1093,7 +1088,9 @@ async def get_system_transactions(db: AsyncSession) -> List[dict]:
         select(
             TransactionLog.log_id.label("id"),
             TransactionLog.final_outcome.label("outcome"),
+            TransactionLog.resolved_at.label("time"),
             StockRequest.requested_drug.label("drug"),
+            StockRequest.required_quantity.label("quantity"),
             PharmacyNode.business_name.label("receiver"),
             ResponderPharmacy.business_name.label("sender")
         )
@@ -1110,10 +1107,12 @@ async def get_system_transactions(db: AsyncSession) -> List[dict]:
     for row in rows:
         txns.append({
             "id": row.id,
-            "from": row.sender if row.sender else "Neighbor Pharmacy",
+            "from": row.sender if row.sender else "N/A",
             "to": row.receiver,
             "drug": row.drug,
-            "status": "completed" if row.outcome == "FULFILLED_BY_NEIGHBOR" else row.outcome
+            "quantity": row.quantity,
+            "status": "completed" if row.outcome == "FULFILLED_BY_NEIGHBOR" else row.outcome,
+            "time": row.time.isoformat() if row.time else None
         })
     return txns
 

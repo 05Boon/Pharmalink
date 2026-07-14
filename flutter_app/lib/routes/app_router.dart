@@ -6,7 +6,6 @@ import '../pages/register_page.dart';
 import '../pages/bulk_register_page.dart';
 import '../pages/owner_dashboard_page.dart';
 import '../pages/drug_query_page.dart';
-import '../pages/search_results_page.dart';
 import '../pages/receive_alert_page.dart';
 import '../pages/accept_share_page.dart';
 import '../pages/view_response_page.dart';
@@ -63,12 +62,6 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/search',
       builder: (context, state) => const DrugQueryPage(),
-    ),
-    GoRoute(
-      path: '/search/results',
-      builder: (context, state) => SearchResultsPage(
-        query: state.uri.queryParameters['q'],
-      ),
     ),
     GoRoute(
       path: '/requests',
