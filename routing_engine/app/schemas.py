@@ -175,8 +175,8 @@ class RequestResponseInput(BaseModel):
 
 class DashboardStats(BaseModel):
     active_queries: int
-    requests_received: int
-    completed: int
+    neighbor_alerts: int
+    community_contribution: int
 
 
 class RecentRequestItem(BaseModel):
@@ -192,11 +192,17 @@ class ActiveQueryItem(BaseModel):
     status: str
 
 
+class FrequentDrugItem(BaseModel):
+    drug_name: str
+    request_count: int
+
+
 class DashboardResponse(BaseModel):
     stats: DashboardStats
     recent_requests: List[RecentRequestItem]
     active_queries: List[ActiveQueryItem]
     low_stock_items: List[InventoryItemResponse]
+    frequent_drugs: List[FrequentDrugItem] = []
 
 
 class OnboardingReviewInput(BaseModel):

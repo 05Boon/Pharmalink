@@ -946,16 +946,17 @@ async def get_dashboard_metrics(db: AsyncSession, pharmacy_id: str) -> dict:
     )
     active_queries_count = (await db.execute(active_queries_stmt)).scalar() or 0
     
-    # Count all alert notifications received by the user
+    # Count UNREAD alert notifications received by the user
     received_stmt = select(func.count(AlertNotification.alert_id)).where(
-        AlertNotification.receiving_pharmacy_id == pharmacy_id
+        AlertNotification.receiving_pharmacy_id == pharmacy_id,
+        AlertNotification.alert_status == "UNREAD"
     )
     received_count = (await db.execute(received_stmt)).scalar() or 0
     
-    # Count FULFILLED requests created by the user
-    completed_stmt = select(func.count(StockRequest.request_id)).where(
-        StockRequest.pharmacy_id == pharmacy_id,
-        StockRequest.request_status == "FULFILLED"
+    # Count ACCEPTED alerts (Community Contribution)
+    completed_stmt = select(func.count(AlertNotification.alert_id)).where(
+        AlertNotification.receiving_pharmacy_id == pharmacy_id,
+        AlertNotification.alert_status == "ACCEPTED"
     )
     completed_count = (await db.execute(completed_stmt)).scalar() or 0
     
@@ -1015,15 +1016,30 @@ async def get_dashboard_metrics(db: AsyncSession, pharmacy_id: str) -> dict:
     low_stock_result = await db.execute(low_stock_stmt)
     low_stock_items = list(low_stock_result.scalars().all())
     
+    # Personal analytics for frequent requested drugs
+    freq_drugs_stmt = (
+        select(StockRequest.requested_drug, func.count(StockRequest.request_id))
+        .where(StockRequest.pharmacy_id == pharmacy_id)
+        .group_by(StockRequest.requested_drug)
+        .order_by(func.count(StockRequest.request_id).desc())
+        .limit(5)
+    )
+    freq_drugs_result = await db.execute(freq_drugs_stmt)
+    frequent_drugs = [
+        {"drug_name": row[0], "request_count": row[1]}
+        for row in freq_drugs_result.all()
+    ]
+    
     return {
         "stats": {
             "active_queries": active_queries_count,
-            "requests_received": received_count,
-            "completed": completed_count
+            "neighbor_alerts": received_count,
+            "community_contribution": completed_count
         },
         "recent_requests": recent_requests,
         "active_queries": active_queries,
-        "low_stock_items": low_stock_items
+        "low_stock_items": low_stock_items,
+        "frequent_drugs": frequent_drugs
     }
 
 

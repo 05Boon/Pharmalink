@@ -261,7 +261,9 @@ async def create_request_and_broadcast(
         pharmacy_id=pharmacy_id,
         requested_drug=request_in.requested_drug,
         required_quantity=request_in.required_quantity,
-        search_radius_meters=request_in.search_radius_meters
+        search_radius_meters=request_in.search_radius_meters,
+        shortage_reason=request_in.shortage_reason,
+        therapeutic_class=request_in.therapeutic_class
     )
     db_request = await crud.create_stock_request(db, stock_request_data)
     

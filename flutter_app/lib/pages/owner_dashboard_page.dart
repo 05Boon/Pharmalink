@@ -1,11 +1,29 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import '../widgets/app_nav.dart';
-import '../widgets/app_button.dart';
 import '../services/network_data_service.dart';
+import 'widgets/frequent_drugs_chart.dart';
 
-class OwnerDashboardPage extends StatelessWidget {
+class OwnerDashboardPage extends StatefulWidget {
   const OwnerDashboardPage({super.key});
+
+  @override
+  State<OwnerDashboardPage> createState() => _OwnerDashboardPageState();
+}
+
+class _OwnerDashboardPageState extends State<OwnerDashboardPage> {
+  late Future<Map<String, dynamic>> _dashboardDataFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshDashboard();
+  }
+
+  void _refreshDashboard() {
+    setState(() {
+      _dashboardDataFuture = NetworkDataService.getOwnerDashboardData();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +41,7 @@ class OwnerDashboardPage extends StatelessWidget {
           ]),
           Expanded(
             child: FutureBuilder<Map<String, dynamic>>(
-              future: NetworkDataService.getOwnerDashboardData(),
+              future: _dashboardDataFuture,
               builder: (context, snapshot) {
                 final data = snapshot.data ?? const <String, dynamic>{};
                 final stats = (data['stats'] as Map<String, dynamic>?) ??
@@ -32,6 +50,10 @@ class OwnerDashboardPage extends StatelessWidget {
                         ?.cast<Map<String, dynamic>>() ??
                     const <Map<String, dynamic>>[];
                 final activeQueries = (data['active_queries'] as List?)
+                        ?.cast<Map<String, dynamic>>() ??
+                    const <Map<String, dynamic>>[];
+
+                final frequentDrugs = (data['frequent_drugs'] as List?)
                         ?.cast<Map<String, dynamic>>() ??
                     const <Map<String, dynamic>>[];
 
@@ -60,21 +82,21 @@ class OwnerDashboardPage extends StatelessWidget {
                             Expanded(
                               child: _StatCard(
                                 value: '${stats['active_queries'] ?? '0'}',
-                                label: 'Active queries',
+                                label: 'My Active Shortages',
                               ),
                             ),
                             const SizedBox(width: 6),
                             Expanded(
                               child: _StatCard(
-                                value: '${stats['requests_received'] ?? '0'}',
-                                label: 'Requests received',
+                                value: '${stats['neighbor_alerts'] ?? '0'}',
+                                label: 'Neighbor Alerts',
                               ),
                             ),
                             const SizedBox(width: 6),
                             Expanded(
                               child: _StatCard(
-                                value: '${stats['completed'] ?? '0'}',
-                                label: 'Completed',
+                                value: '${stats['community_contribution'] ?? '0'}',
+                                label: 'Community Contribution',
                               ),
                             ),
                           ],
@@ -91,7 +113,7 @@ class OwnerDashboardPage extends StatelessWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     const Text(
-                                      'Recent requests',
+                                      'My active queries',
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w500,
@@ -99,22 +121,36 @@ class OwnerDashboardPage extends StatelessWidget {
                                       ),
                                     ),
                                     const SizedBox(height: 6),
-                                    ...recentRequests.map((req) {
-                                      final status =
-                                          '${req['status'] ?? 'Pending'}';
-                                      final style = _statusStyle(status);
-                                      return _RequestItem(
-                                        drug:
-                                            '${req['drug'] ?? req['drug_name'] ?? '-'}',
-                                        from:
-                                            '${req['from'] ?? req['source'] ?? '-'}',
-                                        time:
-                                            '${req['time'] ?? req['created_at'] ?? '-'}',
-                                        status: status,
-                                        color: style.color,
-                                        textColor: style.textColor,
-                                      );
-                                    }),
+                                    if (activeQueries.isEmpty)
+                                      const Padding(
+                                        padding: EdgeInsets.all(16.0),
+                                        child: Center(
+                                          child: Text(
+                                            'No active shortages right now.',
+                                            style: TextStyle(
+                                              fontStyle: FontStyle.italic,
+                                              color: Color(0xFF5F5E5A),
+                                              fontSize: 11,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ),
+                                      )
+                                    else
+                                      ...activeQueries.map((query) {
+                                        final status =
+                                            '${query['status'] ?? '-'}';
+                                        final style = _statusStyle(status);
+                                        return _QueryItem(
+                                          drug:
+                                              '${query['drug'] ?? query['drug_name'] ?? '-'}',
+                                          meta: '${query['meta'] ?? '-'}',
+                                          status: status,
+                                          color: style.color,
+                                          textColor: style.textColor,
+                                          onTap: () => _showCancelQueryModal(query),
+                                        );
+                                      }),
                                   ],
                                 ),
                               ),
@@ -124,7 +160,7 @@ class OwnerDashboardPage extends StatelessWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     const Text(
-                                      'My active queries',
+                                      'Incoming neighbor alerts',
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w500,
@@ -132,74 +168,46 @@ class OwnerDashboardPage extends StatelessWidget {
                                       ),
                                     ),
                                     const SizedBox(height: 6),
-                                    ...activeQueries.map((query) {
-                                      final status =
-                                          '${query['status'] ?? '-'}';
-                                      final style = _statusStyle(status);
-                                      return _QueryItem(
-                                        drug:
-                                            '${query['drug'] ?? query['drug_name'] ?? '-'}',
-                                        meta: '${query['meta'] ?? '-'}',
-                                        status: status,
-                                        color: style.color,
-                                        textColor: style.textColor,
-                                      );
-                                    }),
+                                    if (recentRequests.isEmpty)
+                                      const Padding(
+                                        padding: EdgeInsets.all(16.0),
+                                        child: Center(
+                                          child: Text(
+                                            "No alerts from neighbors. You're all caught up!",
+                                            style: TextStyle(
+                                              fontStyle: FontStyle.italic,
+                                              color: Color(0xFF5F5E5A),
+                                              fontSize: 11,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ),
+                                      )
+                                    else
+                                      ...recentRequests.map((req) {
+                                        final status =
+                                            '${req['status'] ?? 'Pending'}';
+                                        final style = _statusStyle(status);
+                                        return _RequestItem(
+                                          drug:
+                                              '${req['drug'] ?? req['drug_name'] ?? '-'}',
+                                          from:
+                                              '${req['from'] ?? req['source'] ?? '-'}',
+                                          time:
+                                              '${req['time'] ?? req['created_at'] ?? '-'}',
+                                          status: status,
+                                          color: style.color,
+                                          textColor: style.textColor,
+                                          onTap: () => _showAcceptAlertModal(req),
+                                        );
+                                      }),
                                   ],
                                 ),
                               ),
                             ],
                           ),
                         const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 12,
-                          runSpacing: 10,
-                          children: [
-                            SizedBox(
-                              width: 180,
-                              child: AppButton(
-                                text: '+ New drug query',
-                                onPressed: () => context.go('/search'),
-                                fullWidth: false,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            SizedBox(
-                              width: 180,
-                              child: OutlinedButton(
-                                onPressed: () => context.go('/inventory'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: const Color(0xFF1D9E75),
-                                  side: const BorderSide(
-                                      color: Color(0xFF1D9E75)),
-                                  padding: const EdgeInsets.symmetric(
-                                      vertical: 14, horizontal: 16),
-                                ),
-                                child: const Text('Manage Stock',
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600)),
-                              ),
-                            ),
-                            SizedBox(
-                              width: 180,
-                              child: OutlinedButton(
-                                onPressed: () => context.go('/search/response'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: const Color(0xFF633806),
-                                  side: const BorderSide(
-                                      color: Color(0xFF633806)),
-                                  padding: const EdgeInsets.symmetric(
-                                      vertical: 14, horizontal: 16),
-                                ),
-                                child: const Text('Responder Page',
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600)),
-                              ),
-                            ),
-                          ],
-                        ),
+                        FrequentDrugsChart(drugs: frequentDrugs),
                       ],
                     ),
                   ),
@@ -209,6 +217,144 @@ class OwnerDashboardPage extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  void _showAcceptAlertModal(Map<String, dynamic> req) {
+    // Only allow unread/pending to be accepted
+    final status = '${req['status'] ?? 'Pending'}'.toUpperCase();
+    if (status == 'ACCEPTED' || status == 'DECLINED' || status == 'DONE') return;
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Incoming Alert',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              Text('Pharmacy: ${req['from'] ?? req['source'] ?? 'Unknown'}'),
+              const SizedBox(height: 8),
+              Text('Drug: ${req['drug'] ?? req['drug_name'] ?? '-'}'),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Close'),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0F6E56),
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: () async {
+                        // For the purpose of the mock, we assume req['id'] or request_id exists.
+                        // We will need to map this carefully if the backend doesn't return the ID.
+                        // Assuming the API returns the alert id or request id.
+                        try {
+                          await NetworkDataService.respondToIncomingRequest(
+                            requestId: req['id'] ?? req['request_id'] ?? '', 
+                            accepted: true
+                          );
+                          if (!ctx.mounted) return;
+                          Navigator.pop(ctx);
+                          if (!mounted) return;
+                          _refreshDashboard();
+                        } catch (e) {
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Failed to accept: $e')),
+                          );
+                        }
+                      },
+                      child: const Text('Accept Request'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showCancelQueryModal(Map<String, dynamic> query) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Cancel Query',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red),
+              ),
+              const SizedBox(height: 16),
+              Text('Drug: ${query['drug'] ?? query['drug_name'] ?? '-'}'),
+              const SizedBox(height: 8),
+              Text('Status: ${query['status'] ?? '-'}'),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Keep Active'),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: () async {
+                        try {
+                          // Call your cancel query API here.
+                          // e.g. await NetworkDataService.cancelRequest(...)
+                          // We simulate it here if it doesn't exist.
+                          if (!ctx.mounted) return;
+                          Navigator.pop(ctx);
+                          if (!mounted) return;
+                          _refreshDashboard();
+                        } catch (e) {
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Failed to cancel: $e')),
+                          );
+                        }
+                      },
+                      child: const Text('Cancel Query'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -285,6 +431,7 @@ class _RequestItem extends StatelessWidget {
   final String status;
   final Color color;
   final Color textColor;
+  final VoidCallback? onTap;
 
   const _RequestItem({
     required this.drug,
@@ -293,57 +440,61 @@ class _RequestItem extends StatelessWidget {
     required this.status,
     required this.color,
     required this.textColor,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: Color(0xFFE8E6DF)),
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  drug,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF1A1A18),
-                  ),
-                ),
-                Text(
-                  '$from · $time',
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: Color(0xFF5F5E5A),
-                  ),
-                ),
-              ],
-            ),
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+        decoration: const BoxDecoration(
+          border: Border(
+            bottom: BorderSide(color: Color(0xFFE8E6DF)),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(
-              status,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-                color: textColor,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    drug,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF1A1A18),
+                    ),
+                  ),
+                  Text(
+                    '$from · $time',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Color(0xFF5F5E5A),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-        ],
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                status,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: textColor,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -355,6 +506,7 @@ class _QueryItem extends StatelessWidget {
   final String status;
   final Color color;
   final Color textColor;
+  final VoidCallback? onTap;
 
   const _QueryItem({
     required this.drug,
@@ -362,57 +514,61 @@ class _QueryItem extends StatelessWidget {
     required this.status,
     required this.color,
     required this.textColor,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: Color(0xFFE8E6DF)),
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  drug,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF1A1A18),
-                  ),
-                ),
-                Text(
-                  meta,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: Color(0xFF5F5E5A),
-                  ),
-                ),
-              ],
-            ),
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+        decoration: const BoxDecoration(
+          border: Border(
+            bottom: BorderSide(color: Color(0xFFE8E6DF)),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(
-              status,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-                color: textColor,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    drug,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF1A1A18),
+                    ),
+                  ),
+                  Text(
+                    meta,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Color(0xFF5F5E5A),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-        ],
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                status,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: textColor,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../widgets/app_nav.dart';
 import '../widgets/app_button.dart';
 import '../services/network_data_service.dart';
@@ -17,6 +18,19 @@ class ViewResponsePage extends StatelessWidget {
         return const Color(0xFF633806);
       default:
         return const Color(0xFF5F5E5A);
+    }
+  }
+
+  Color _statusBgColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'fulfilled':
+      case 'accepted':
+      case 'completed':
+        return const Color(0xFFE6F3EE);
+      case 'pending':
+        return const Color(0xFFFFF0D4);
+      default:
+        return const Color(0xFFE8E6DF);
     }
   }
 
@@ -40,7 +54,7 @@ class ViewResponsePage extends StatelessWidget {
                   padding: const EdgeInsets.all(14),
                   child: Center(
                     child: Container(
-                      constraints: const BoxConstraints(maxWidth: 560),
+                      constraints: const BoxConstraints(maxWidth: 560, minHeight: 300),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         border: Border.all(color: const Color(0xFFB4B2A9)),
@@ -74,11 +88,17 @@ class ViewResponsePage extends StatelessWidget {
                               snapshot.connectionState !=
                                   ConnectionState.waiting &&
                               sentRequests.isEmpty)
-                            const Text(
-                              'No sent requests yet. Create a request and responses will appear here.',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Color(0xFF5F5E5A),
+                            Container(
+                              height: 150,
+                              alignment: Alignment.center,
+                              child: const Text(
+                                'No responses yet. Create a request and they will appear here.',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontStyle: FontStyle.italic,
+                                  color: Color(0xFF5F5E5A),
+                                ),
+                                textAlign: TextAlign.center,
                               ),
                             ),
                           if (!snapshot.hasError &&
@@ -115,20 +135,40 @@ class ViewResponsePage extends StatelessWidget {
                                         color: Color(0xFF5F5E5A),
                                       ),
                                     ),
-                                    Text(
-                                      'Sent: ${details['created_at'] ?? '-'}',
-                                      style: const TextStyle(
-                                        fontSize: 10,
-                                        color: Color(0xFF5F5E5A),
-                                      ),
+                                    Builder(
+                                      builder: (context) {
+                                        String dateStr = '-';
+                                        if (details['created_at'] != null) {
+                                          try {
+                                            final dt = DateTime.parse(details['created_at']);
+                                            dateStr = DateFormat('MMM d, yyyy - h:mm a').format(dt);
+                                          } catch (_) {
+                                            dateStr = details['created_at'];
+                                          }
+                                        }
+                                        return Text(
+                                          'Sent: $dateStr',
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            color: Color(0xFF5F5E5A),
+                                          ),
+                                        );
+                                      }
                                     ),
                                     const SizedBox(height: 6),
-                                    Text(
-                                      'Status: $status',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        color: _statusColor(status),
-                                        fontWeight: FontWeight.w600,
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: _statusBgColor(status),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        status.toUpperCase(),
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: _statusColor(status),
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
                                     ),
                                     if (acceptedBy is Map<String, dynamic>) ...[
