@@ -71,6 +71,7 @@ class _ReceiveAlertPageState extends State<ReceiveAlertPage> {
   @override
   void initState() {
     super.initState();
+    // Initial inbox hydration + realtime stream subscription.
     _requestsFuture = NetworkDataService.getIncomingRequests();
     _startRealtimeAlerts();
   }
@@ -82,8 +83,54 @@ class _ReceiveAlertPageState extends State<ReceiveAlertPage> {
   }
 
   Future<void> _startRealtimeAlerts() async {
+    // Realtime event handling for new alerts and fulfillment race outcomes.
     _alertsSubscription =
         RealtimeAlertService.instance.alertsStream.listen((alert) {
+      final event = '${alert['event'] ?? ''}'.trim().toUpperCase();
+
+      // Request is no longer actionable for this responder.
+      if (event == 'REQUEST_ALREADY_FULFILLED' || event == 'REQUEST_ACCEPTED') {
+        final requestId = '${alert['request_id'] ?? ''}'.trim();
+        if (requestId.isNotEmpty && mounted) {
+          setState(() {
+            _liveRequests.removeWhere((item) {
+              final id = '${item['request_id'] ?? item['id'] ?? ''}'.trim();
+              return id == requestId;
+            });
+            _requestsFuture = NetworkDataService.getIncomingRequests();
+          });
+
+          final fulfilledBy = alert['fulfilled_by_pharmacy'];
+          var byName = '';
+          if (fulfilledBy is Map<String, dynamic>) {
+            byName = '${fulfilledBy['business_name'] ?? ''}'.trim();
+          }
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                byName.isEmpty
+                    ? 'This request has already been fulfilled by another pharmacy.'
+                    : 'Request already fulfilled by $byName.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
+
+      // Requester-side summary event: do not add to incoming responder inbox.
+      if (event == 'REQUEST_BROADCAST_SENT') {
+        final notifiedCount = '${alert['notified_pharmacies_count'] ?? 0}';
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Your request was sent to $notifiedCount nearby pharmacies.'),
+          ),
+        );
+        return;
+      }
+
       final normalized = _normalizeAlertForInbox(alert);
       if (!mounted) return;
 
@@ -100,6 +147,7 @@ class _ReceiveAlertPageState extends State<ReceiveAlertPage> {
   }
 
   Map<String, dynamic> _normalizeAlertForInbox(Map<String, dynamic> alert) {
+    // Normalize heterogeneous socket payloads into request-card shape.
     final requestId = '${alert['request_id'] ?? ''}';
     final alertId = '${alert['alert_id'] ?? ''}';
 
@@ -122,6 +170,7 @@ class _ReceiveAlertPageState extends State<ReceiveAlertPage> {
   List<Map<String, dynamic>> _mergeRequests(
     List<Map<String, dynamic>> initialRequests,
   ) {
+    // Merge live socket items with API list and de-duplicate by request identity.
     final mergedByKey = <String, Map<String, dynamic>>{};
 
     final all = <Map<String, dynamic>>[
@@ -153,6 +202,7 @@ class _ReceiveAlertPageState extends State<ReceiveAlertPage> {
     Map<String, dynamic> request,
     bool accepted,
   ) async {
+    // Responder decision flow: persist ACCEPT/DECLINE and refresh actionable list.
     final requestId = '${request['request_id'] ?? request['id'] ?? ''}'.trim();
     if (requestId.isEmpty) {
       if (!mounted) return;

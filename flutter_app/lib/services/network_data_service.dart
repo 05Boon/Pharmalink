@@ -15,6 +15,7 @@ class NetworkDataService {
   static final Dio _dio = AppDio.instance;
 
   static bool _isOpenRequestStatus(String status) {
+    // Shared filter for actionable request states in responder views.
     final normalized = status.trim().toUpperCase();
     if (normalized.isEmpty) return true;
     return normalized != 'FULFILLED' &&
@@ -24,6 +25,7 @@ class NetworkDataService {
   }
 
   static String? _currentPharmacyId() {
+    // Resolve active pharmacy identity from auth cache/session.
     final cachedId = '${AuthService.currentUser?['id'] ?? ''}'.trim();
     if (cachedId.isNotEmpty) {
       return cachedId;
@@ -198,6 +200,8 @@ class NetworkDataService {
     required int searchRadiusMeters,
     String? shortageReason,
   }) async {
+    // Core flow: creating a request triggers backend geo-search + auto-broadcast
+    // to nearby pharmacies. The requester receives only a summary notification.
     return _postMap(
       '${ApiConfig.baseUrl}/broadcasts/request',
       <String, dynamic>{
@@ -213,6 +217,8 @@ class NetworkDataService {
     required String requestId,
     required bool accepted,
   }) async {
+    // Core flow: responders can accept/decline; backend enforces first-accept
+    // winner semantics and emits fulfillment events to other responders.
     final status = accepted ? 'ACCEPTED' : 'DECLINED';
     final paths = <String>[
       '${ApiConfig.requestsUrl}/$requestId/respond',
@@ -328,6 +334,7 @@ class NetworkDataService {
   }
 
   static Future<Map<String, dynamic>> getOwnerDashboardData() async {
+    // Owner home screen summary metrics and lists.
     return _getMap('${ApiConfig.baseUrl}/dashboard');
   }
 
@@ -337,6 +344,7 @@ class NetworkDataService {
   }
 
   static Future<List<Map<String, dynamic>>> getIncomingRequests() async {
+    // Responder inbox source: open requests not created by the current pharmacy.
     final requests = await _getList(ApiConfig.requestsUrl);
     final currentUserId = _currentPharmacyId();
     return requests.where((request) {
@@ -381,7 +389,21 @@ class NetworkDataService {
 
 
   static Future<List<Map<String, dynamic>>> getPharmacies() async {
+    // Admin pharmacy management table source.
     return _getList('${ApiConfig.baseUrl}/admin/pharmacies');
+  }
+
+  static Future<void> deletePharmacy(String pharmacyId) async {
+    // Admin destructive action with backend rule feedback surfaced to UI.
+    try {
+      await _deleteMap('${ApiConfig.baseUrl}/admin/pharmacies/$pharmacyId');
+    } on DioException catch (error) {
+      final responseData = error.response?.data;
+      if (responseData is Map && responseData['detail'] != null) {
+        throw Exception('${responseData['detail']}');
+      }
+      throw Exception('Failed to delete pharmacy.');
+    }
   }
 
   static Future<Map<String, dynamic>> getOnboardingDetail(

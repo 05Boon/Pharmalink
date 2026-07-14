@@ -31,6 +31,7 @@ async def get_all_pharmacies(
     Returns a list of all registered pharmacy nodes with their locations.
     Only accessible by administrators.
     """
+    # Admin governance flow: list all registered pharmacy nodes with map coordinates.
     stmt = select(PharmacyNode)
     result = await db.execute(stmt)
     nodes = result.scalars().all()
@@ -77,6 +78,7 @@ async def patch_pharmacy_status(
     Toggles/updates a pharmacy's account status (e.g. ACTIVE vs SUSPENDED).
     Requires a valid admin JWT. Returns the updated pharmacy profile.
     """
+    # Admin lifecycle control: activate/suspend nodes.
     updated_node = await crud.update_pharmacy_status(db, pharmacy_id, status_update.account_status)
     if not updated_node:
         raise HTTPException(
@@ -123,6 +125,7 @@ async def get_outbreaks(
     Retrieves geospatial outbreak detection analytics (grouped by drug, average coordinates as centroids, and request frequency).
     Only accessible by administrators.
     """
+    # Admin analytics flow: geospatial outbreak clustering by timeframe.
     if days <= 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -191,6 +194,42 @@ async def get_pharmacy_inventory(
             detail="Pharmacy node not found."
         )
     return await crud.get_inventory_items(db, pharmacy_id)
+
+
+@admin_router.delete(
+    "/pharmacies/{pharmacy_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a pharmacy node (Admin only)"
+)
+async def delete_pharmacy(
+    pharmacy_id: str,
+    admin=Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Permanently deletes a pharmacy node from the network.
+    """
+    # Admin destructive operation guarded by status rules.
+    node = await crud.get_pharmacy_node(db, pharmacy_id)
+    if not node:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pharmacy node not found."
+        )
+
+    if (node.account_status or "").upper() == "ACTIVE":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Suspend the pharmacy before deleting it."
+        )
+
+    deleted = await crud.delete_pharmacy_node(db, pharmacy_id)
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pharmacy node not found."
+        )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @admin_router.patch(

@@ -117,6 +117,7 @@ async def search_drugs(
     Searches inventory across pharmacies for drug names matching the query.
     Excludes the authenticated pharmacy from results.
     """
+    # Owner search flow: browse nearby inventory candidates before/after request broadcasts.
     return await crud.search_drugs(
         db,
         query=query.strip(),
@@ -238,6 +239,8 @@ async def create_request_and_broadcast(
     finds neighboring pharmacies within the radius holding the drug, seeds unread alert records,
     and broadcasts the alert message via real-time WebSockets to connected nodes.
     """
+    # Core routing flow: requester creates demand, system fans out alerts to nearby nodes,
+    # requester only receives delivery-summary feedback.
     # 1. Fetch the requesting pharmacy's origin coordinates in EWKT format
     location_query = select(func.ST_AsEWKT(PharmacyNode.location)).where(PharmacyNode.pharmacy_id == pharmacy_id)
     location_result = await db.execute(location_query)
@@ -289,8 +292,9 @@ async def create_request_and_broadcast(
         )
         db_alert = await crud.create_alert_notification(db, alert_data)
         
-        # Broadcast alert payload via active websocket connection if online
+        # Broadcast detailed alert payload to neighboring pharmacies only.
         alert_payload = {
+            "event": "INCOMING_REQUEST_ALERT",
             "alert_id": db_alert.alert_id,
             "request_id": db_request.request_id,
             "requesting_pharmacy_name": requester_name,
@@ -300,6 +304,19 @@ async def create_request_and_broadcast(
         }
         await manager.broadcast_to_pharmacy(neighbor.pharmacy_id, alert_payload)
         alerted_count += 1
+
+    # Notify requester with a summary only, not neighbor request details.
+    await manager.broadcast_to_pharmacy(
+        pharmacy_id,
+        {
+            "event": "REQUEST_BROADCAST_SENT",
+            "request_id": db_request.request_id,
+            "requested_drug": db_request.requested_drug,
+            "required_quantity": db_request.required_quantity,
+            "notified_pharmacies_count": alerted_count,
+            "created_at": db_request.created_at.isoformat(),
+        },
+    )
         
     # 5. Fetch and return StockRequest with eagerly loaded Alert relationship
     return await crud.get_stock_request(db, db_request.request_id)
@@ -317,6 +334,7 @@ async def get_my_active_requests(
     """
     Returns all active (PENDING) stock requests created by the authenticated pharmacy.
     """
+    # Owner dashboard flow: show only unresolved outbound requests.
     return await crud.get_active_stock_requests(db, pharmacy_id)
 
 
@@ -333,6 +351,7 @@ async def get_my_unread_alerts(
     Returns unread alert notifications targeted at the authenticated pharmacy,
     including details of the stock request and the requesting pharmacy's profile.
     """
+    # Responder inbox flow: unread actionable alerts for this pharmacy.
     return await crud.get_unread_alerts(db, pharmacy_id)
 
 
@@ -351,6 +370,7 @@ async def respond_to_request(
     Allows a neighbor to accept or decline a stock request alert.
     If accepted, status of the parent request becomes FULFILLED.
     """
+    # Core fulfillment flow: first valid accepter wins; late accepters are informed request is fulfilled.
     updated_request = await crud.respond_to_stock_request(db, pharmacy_id, request_id, payload.status)
     if not updated_request:
         raise HTTPException(
@@ -372,27 +392,75 @@ async def respond_to_request(
 
         from app.main import manager
 
-        await manager.broadcast_to_pharmacy(
-            updated_request.pharmacy_id,
-            {
-                "event": "REQUEST_ACCEPTED",
-                "request_id": updated_request.request_id,
-                "requested_drug": updated_request.requested_drug,
-                "accepted_at": (
-                    accepted_alert.delivered_at.isoformat()
-                    if accepted_alert and accepted_alert.delivered_at
-                    else None
-                ),
-                "accepted_by_pharmacy": {
-                    "pharmacy_id": responder.pharmacy_id,
-                    "business_name": responder.business_name,
-                    "email": responder.email,
-                    "phone_number": responder.phone_number,
-                }
-                if responder
-                else None,
-            },
+        accepted_by_current = (
+            accepted_alert is not None
+            and accepted_alert.receiving_pharmacy_id == pharmacy_id
         )
+
+        if accepted_by_current:
+            # Winner path: notify requester and all other alerted neighbors.
+            accepted_by_payload = {
+                "pharmacy_id": responder.pharmacy_id,
+                "business_name": responder.business_name,
+                "email": responder.email,
+                "phone_number": responder.phone_number,
+            } if responder else None
+
+            await manager.broadcast_to_pharmacy(
+                updated_request.pharmacy_id,
+                {
+                    "event": "REQUEST_ACCEPTED",
+                    "request_id": updated_request.request_id,
+                    "requested_drug": updated_request.requested_drug,
+                    "accepted_at": (
+                        accepted_alert.delivered_at.isoformat()
+                        if accepted_alert and accepted_alert.delivered_at
+                        else None
+                    ),
+                    "accepted_by_pharmacy": accepted_by_payload,
+                },
+            )
+
+            # Inform all non-winning responders that this request is already fulfilled.
+            other_pharmacies = {
+                alert.receiving_pharmacy_id
+                for alert in updated_request.alerts
+                if alert.receiving_pharmacy_id != pharmacy_id
+            }
+            for target_pharmacy_id in other_pharmacies:
+                await manager.broadcast_to_pharmacy(
+                    target_pharmacy_id,
+                    {
+                        "event": "REQUEST_ALREADY_FULFILLED",
+                        "request_id": updated_request.request_id,
+                        "requested_drug": updated_request.requested_drug,
+                        "fulfilled_by_pharmacy": accepted_by_payload,
+                    },
+                )
+        else:
+            # Late accepter path: this pharmacy lost the race; notify only this pharmacy.
+            winner = None
+            if accepted_alert is not None:
+                winner = await crud.get_pharmacy_node(
+                    db, accepted_alert.receiving_pharmacy_id
+                )
+
+            await manager.broadcast_to_pharmacy(
+                pharmacy_id,
+                {
+                    "event": "REQUEST_ALREADY_FULFILLED",
+                    "request_id": updated_request.request_id,
+                    "requested_drug": updated_request.requested_drug,
+                    "fulfilled_by_pharmacy": {
+                        "pharmacy_id": winner.pharmacy_id,
+                        "business_name": winner.business_name,
+                        "email": winner.email,
+                        "phone_number": winner.phone_number,
+                    }
+                    if winner
+                    else None,
+                },
+            )
 
     return updated_request
 
@@ -409,6 +477,7 @@ async def get_my_requests(
     """
     Returns all stock requests created by the pharmacy OR sent as alerts to the pharmacy.
     """
+    # Combined owner+responder timeline for this authenticated pharmacy.
     return await crud.get_user_relevant_requests(db, pharmacy_id)
 
 
@@ -424,6 +493,7 @@ async def get_my_alerts(
     """
     Returns all alert notifications (both read and unread) targeted at the pharmacy.
     """
+    # Full alert history used by inbox and audit-style list views.
     return await crud.get_all_user_alerts(db, pharmacy_id)
 
 
@@ -441,6 +511,7 @@ async def get_dashboard(
     completed transactions count, recent requests list, active queries list,
     and low stock inventory items.
     """
+    # Consolidated owner dashboard metrics for active work and low stock visibility.
     return await crud.get_dashboard_metrics(db, pharmacy_id)
 
 
@@ -457,6 +528,7 @@ async def get_transactions_history(
     Returns transaction logs where the pharmacy participated as requester
     or as the accepting responder.
     """
+    # Historical ledger for completed request-sharing outcomes.
     return await crud.get_user_transaction_history(db, pharmacy_id)
 
 

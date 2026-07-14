@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from sqlalchemy import cast, func, or_, Numeric
+from sqlalchemy import cast, func, or_, Numeric, update
 from geoalchemy2 import Geography
 from typing import Optional, List
 from app.models import StockRequest, AlertNotification, PharmacyNode, InventoryItem, TransactionLog, SystemAdmin
@@ -14,6 +14,7 @@ async def create_stock_request(db: AsyncSession, request: schemas.StockRequestCr
     """
     Creates a new StockRequest entry in the database.
     """
+    # Persist outbound demand before geo-discovery and notifications.
     db_request = StockRequest(
         pharmacy_id=request.pharmacy_id,
         requested_drug=request.requested_drug,
@@ -46,6 +47,7 @@ async def create_alert_notification(db: AsyncSession, alert: schemas.AlertNotifi
     """
     Creates a new AlertNotification entry linked to a StockRequest.
     """
+    # Each nearby responder gets one alert row for inbox/realtime synchronization.
     db_alert = AlertNotification(
         request_id=alert.request_id,
         receiving_pharmacy_id=alert.receiving_pharmacy_id,
@@ -105,6 +107,7 @@ async def find_neighboring_pharmacies(
     inventory row stored as "Panadol Extra 500mg", instead of silently
     finding zero neighbors on an exact-match miss.
     """
+    # Geo-routing discovery: candidate responders inside radius + matching stock.
     normalized_drug_name = drug_name.strip().lower()
     stmt = (
         select(PharmacyNode)
@@ -137,6 +140,7 @@ async def search_drugs(
     Searches inventory by partial drug name and returns display-ready rows
     for the client search results page.
     """
+    # Read-only discovery list for owner search results page.
     normalized_query = query.strip()
     if not normalized_query:
         return []
@@ -364,6 +368,20 @@ async def update_pharmacy_status(db: AsyncSession, pharmacy_id: str, account_sta
         await db.commit()
         await db.refresh(db_node)
     return db_node
+
+
+async def delete_pharmacy_node(db: AsyncSession, pharmacy_id: str) -> bool:
+    """
+    Deletes a pharmacy node by ID.
+    Related records are removed by database FK cascade rules where applicable.
+    """
+    db_node = await get_pharmacy_node(db, pharmacy_id)
+    if not db_node:
+        return False
+
+    await db.delete(db_node)
+    await db.commit()
+    return True
 
 
 async def get_outbreaks_analytics(db: AsyncSession, days: int) -> List[dict]:
@@ -612,6 +630,7 @@ async def get_user_relevant_requests(db: AsyncSession, pharmacy_id: str) -> List
     """
     Retrieves all stock requests created by the pharmacy OR sent as alerts to the pharmacy.
     """
+    # Unified request feed for owner-created and responder-received requests.
     stmt = (
         select(StockRequest)
         .outerjoin(AlertNotification, StockRequest.request_id == AlertNotification.request_id)
@@ -630,6 +649,7 @@ async def get_all_user_alerts(db: AsyncSession, pharmacy_id: str) -> List[AlertN
     """
     Retrieves all alert notifications targeted at the pharmacy.
     """
+    # Full alert trail for responder visibility/history.
     stmt = (
         select(AlertNotification)
         .where(AlertNotification.receiving_pharmacy_id == pharmacy_id)
@@ -653,10 +673,13 @@ async def respond_to_stock_request(
     Updates the AlertNotification and, if accepted, updates StockRequest status
     and records a TransactionLog.
     """
+    # Lock the responder's alert row so concurrent writes for the same responder
+    # cannot race each other.
     stmt = (
         select(AlertNotification)
         .where(AlertNotification.request_id == request_id)
         .where(AlertNotification.receiving_pharmacy_id == pharmacy_id)
+        .with_for_update()
     )
     result = await db.execute(stmt)
     alert = result.scalar_one_or_none()
@@ -664,38 +687,65 @@ async def respond_to_stock_request(
     if not alert:
         return None
     
-    alert.alert_status = status_str
-    db.add(alert)
-    
+    # Lock the parent request row so only one accepter can transition it from
+    # PENDING -> FULFILLED.
     req_stmt = (
         select(StockRequest)
         .where(StockRequest.request_id == request_id)
         .options(selectinload(StockRequest.alerts), selectinload(StockRequest.pharmacy))
+        .with_for_update()
     )
     req_result = await db.execute(req_stmt)
     db_request = req_result.scalar_one_or_none()
-    
-    if db_request and status_str == "ACCEPTED":
-        db_request.request_status = "FULFILLED"
-        db.add(db_request)
-        
-        log = TransactionLog(
-            request_id=request_id,
-            drug_category=db_request.requested_drug,
-            final_outcome="FULFILLED_BY_NEIGHBOR"
-        )
-        db.add(log)
+
+    if not db_request:
+        return None
+
+    # Concurrency-safe winner selection: first accepter fulfills, others become declined.
+    if status_str == "ACCEPTED":
+        if db_request.request_status == "FULFILLED":
+            # Another pharmacy already won the request; this responder becomes
+            # a non-winner and should not remain open.
+            alert.alert_status = "DECLINED"
+            db.add(alert)
+        else:
+            # First accepter wins.
+            alert.alert_status = "ACCEPTED"
+            db.add(alert)
+
+            db_request.request_status = "FULFILLED"
+            db.add(db_request)
+
+            # Close all other pending/unread neighbor alerts for this request.
+            close_others_stmt = (
+                update(AlertNotification)
+                .where(AlertNotification.request_id == request_id)
+                .where(AlertNotification.receiving_pharmacy_id != pharmacy_id)
+                .where(AlertNotification.alert_status.in_(["UNREAD", "PENDING"]))
+                .values(alert_status="DECLINED")
+            )
+            await db.execute(close_others_stmt)
+
+            log = TransactionLog(
+                request_id=request_id,
+                drug_category=db_request.requested_drug,
+                final_outcome="FULFILLED_BY_NEIGHBOR"
+            )
+            db.add(log)
+    else:
+        # Standard decline path for non-accepting responders.
+        alert.alert_status = status_str
+        db.add(alert)
         
     await db.commit()
-    if db_request:
-        # Re-query after commit to load alerts relationship and prevent expired lazy-load errors
-        refetch_stmt = (
-            select(StockRequest)
-            .where(StockRequest.request_id == request_id)
-            .options(selectinload(StockRequest.alerts), selectinload(StockRequest.pharmacy))
-        )
-        refetch_result = await db.execute(refetch_stmt)
-        db_request = refetch_result.scalar_one_or_none()
+    # Re-query after commit to load refreshed alerts relationship.
+    refetch_stmt = (
+        select(StockRequest)
+        .where(StockRequest.request_id == request_id)
+        .options(selectinload(StockRequest.alerts), selectinload(StockRequest.pharmacy))
+    )
+    refetch_result = await db.execute(refetch_stmt)
+    db_request = refetch_result.scalar_one_or_none()
     return db_request
 
 
@@ -759,6 +809,7 @@ async def get_last_sent_request_with_responder(
     Retrieves the most recent sent request and enriches it with the accepting
     pharmacy details when available.
     """
+    # Owner follow-up view: last sent request plus winner details when fulfilled.
     request = await get_last_sent_request(db, pharmacy_id)
     if not request:
         return None
@@ -804,6 +855,7 @@ async def get_sent_requests_with_responder(
     Retrieves all sent requests and enriches each with accepting pharmacy details
     when available.
     """
+    # Historical sent requests enriched with accepting pharmacy details.
     stmt = (
         select(StockRequest)
         .where(StockRequest.pharmacy_id == pharmacy_id)
@@ -874,6 +926,7 @@ async def get_dashboard_metrics(db: AsyncSession, pharmacy_id: str) -> dict:
     """
     Consolidates stats, recent requests, active queries, and low stock items.
     """
+    # Core owner dashboard aggregation used by main owner landing page.
     # Count PENDING requests created by the user
     active_queries_stmt = select(func.count(StockRequest.request_id)).where(
         StockRequest.pharmacy_id == pharmacy_id,
@@ -966,6 +1019,7 @@ async def get_user_transaction_history(db: AsyncSession, pharmacy_id: str) -> Li
     """
     Retrieves transactions relevant to a pharmacy (as requester or accepted responder).
     """
+    # Build a transaction timeline from both requester and responder perspectives.
     from sqlalchemy.orm import aliased
 
     RequesterPharmacy = aliased(PharmacyNode)
